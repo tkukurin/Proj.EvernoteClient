@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+
+    <groupId>co.kukurin</groupId>
+    <artifactId>study-app</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+
+    <properties>
+        <evernote-api.version>1.25.1</evernote-api.version>
+        <lombok.version>LATEST</lombok.version>
+        <maven-compiler-plugin.version>LATEST</maven-compiler-plugin.version>
+
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+
+        <slf4j-api.version>1.7.7</slf4j-api.version>
+    </properties>
+
+
+    <dependencies>
+        <dependency>
+            <groupId>com.evernote</groupId>
+            <artifactId>evernote-api</artifactId>
+            <version>${evernote-api.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j-api.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>1.7.5</version>
+        </dependency>
+    </dependencies>
+
+</project>
