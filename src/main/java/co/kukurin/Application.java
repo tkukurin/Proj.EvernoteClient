@@ -1,15 +1,17 @@
 package co.kukurin;
 
-import co.kukurin.custom.properties.PropertyLoader;
-import co.kukurin.environment.ApplicationEnvironment;
 import co.kukurin.environment.ApplicationProperties;
 import co.kukurin.environment.EvernoteProperties;
 import co.kukurin.evernote.EvernoteAdapter;
+import co.kukurin.gui.ActionFactory;
 import co.kukurin.gui.JFrameUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.swing.*;
-import java.io.IOException;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 @Slf4j
 public class Application extends JFrame {
@@ -17,30 +19,43 @@ public class Application extends JFrame {
     private final ApplicationProperties applicationProperties;
     private final EvernoteAdapter evernoteAdapter;
 
+    private JTextField titleTextField;
+    private JTextArea contentTextArea;
+    private JButton submitNoteButton;
+
     public Application(EvernoteProperties evernoteProperties,
                        ApplicationProperties applicationProperties) {
         this.evernoteAdapter = new EvernoteAdapter(evernoteProperties);
         this.applicationProperties = applicationProperties;
 
-        JFrameUtils.initWindowProperties(this);
+        initWindowFromProperties();
+        initGuiElements();
     }
 
-    public static void main(String[] args) {
-        try {
-            EvernoteProperties evernoteProperties = initProperties(EvernoteProperties.class, "evernote.properties");
-            ApplicationProperties applicationProperties = initProperties(ApplicationProperties.class, "application.properties");
-
-            log.info("initialized application");
-            SwingUtilities.invokeAndWait(() -> new Application(evernoteProperties, applicationProperties));
-        } catch (Exception e) {
-            log.error("failed to start application", e);
-        }
+    private void initWindowFromProperties() {
+        JFrameUtils.displayAndAddProperties(this,
+                WindowConstants.EXIT_ON_CLOSE,
+                applicationProperties.getTitle(),
+                applicationProperties.getMinWidth(),
+                applicationProperties.getMinHeight());
     }
 
-    private static <T> T initProperties(Class<T> clazz, String fromFile) throws IOException, IllegalAccessException, InstantiationException {
-        return PropertyLoader
-                .forClass(clazz)
-                .initFromSystemResourceFiles(fromFile);
+    private void initGuiElements() {
+        this.titleTextField = new JTextField();
+        this.contentTextArea = new JTextArea();
+        this.submitNoteButton = new JButton(ActionFactory.createAction("Submit note", this::onSubmitNoteClick));
+
+        setLayout(new BorderLayout(5, 5));
+        add(this.titleTextField, BorderLayout.NORTH);
+        add(this.contentTextArea, BorderLayout.CENTER);
+        add(this.submitNoteButton, BorderLayout.SOUTH);
+    }
+
+    private void onSubmitNoteClick(ActionEvent event) {
+        String noteTitle = this.titleTextField.getText();
+        String noteContent = this.contentTextArea.getText();
+        supplyAsync(() -> this.evernoteAdapter.storeNote(noteTitle, noteContent))
+                .thenAccept(note -> log.info("stored note {}", note));
     }
 
 }

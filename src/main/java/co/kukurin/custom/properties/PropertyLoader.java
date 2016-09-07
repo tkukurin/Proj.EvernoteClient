@@ -1,61 +1,122 @@
 package co.kukurin.custom.properties;
 
-import lombok.extern.slf4j.Slf4j;
+import co.kukurin.custom.exception.ExceptionHelper;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
 import java.util.*;
-import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
-@Slf4j
+/**
+ * Class made for playing with the reflection API for a bit.
+ *
+ * <ul>
+ *     <li>Pros: less overhead compared to {@link Properties} once instantiated</li>
+ *     <li>Cons: slower loading because reflection is used</li>
+ * </ul>
+ *
+ * <p>
+ *     Possibly useful in situations where properties are external/user-defined; otherwise induces unnecessary
+ *     coupling between a class and property files.
+ * </p>
+ *
+ * <p>
+ *     <b>NOTE</b> Currently does not allow collection items to contain commas. Also does not parse complex
+ *     structures such as Set&lt;Set&lt;...&gt;&gt;.
+ *     TODO "\," vs. ","
+ * </p>
+ *
+ * @param <T>
+ */
 public class PropertyLoader<T> {
 
-    private static final Map<Class<?>, Function<String, ?>> fieldTypeToItsConverterFromString;
+    @FunctionalInterface
+    interface Converter { Object apply(String propertyValueAsString, Class<?> typeOfGenericIfFieldIsParametrized); }
+    private static final Map<Class<?>, Converter> fieldTypeToConverter;
+
     static {
-        fieldTypeToItsConverterFromString = new HashMap<>();
-        fieldTypeToItsConverterFromString.put(Integer.class, Integer::parseInt);
-        fieldTypeToItsConverterFromString.put(String.class, Function.identity());
+        fieldTypeToConverter = new HashMap<>();
+
+        fieldTypeToConverter.put(Integer.class, (string, cannotBeGeneric) -> Integer.parseInt(string));
+        fieldTypeToConverter.put(String.class, (string, cannotBeGeneric) -> string);
+
+        fieldTypeToConverter.put(Set.class, (string, typeOfGeneric) -> collect(Collectors.toSet(), typeOfGeneric, string));
     }
 
-    private final Class<T> clazz;
-    private PropertyLoader(Class<T> clazz) { this.clazz = clazz; }
+    @SuppressWarnings("unchecked")
+    private static <T, A, R> R collect(Collector<T, A, R> collector,
+                                       Class<?> typeOfGeneric,
+                                       String commaSeparatedString) {
+        Converter remappingFunctionForEachStringInCollection = fieldTypeToConverter.get(typeOfGeneric);
+        return Arrays.stream(commaSeparatedStringToArray(commaSeparatedString))
+                .map(arrayItem -> (T)remappingFunctionForEachStringInCollection.apply(arrayItem, null))
+                .collect(collector);
+    }
+
+    private static String[] commaSeparatedStringToArray(String s) {
+        return s.split(",");
+    }
+
+    private final Class<T> propertyClass;
+    private PropertyLoader(Class<T> propertyClass) {
+        this.propertyClass = propertyClass;
+    }
 
     public static <T> PropertyLoader<T> forClass(Class<T> classWhoseFieldsShouldBeLoadedFromProperties) {
         return new PropertyLoader<>(classWhoseFieldsShouldBeLoadedFromProperties);
     }
 
-    public T initFromSystemResourceFiles(String ... resourceNames) throws IllegalAccessException, InstantiationException {
+    public T initFromSystemResourceFiles(String... resourceNames) throws IllegalAccessException, InstantiationException {
         Map<String, String> fieldNameToValue = loadFieldNameToValueMapFromResources(resourceNames);
-        T clazzInstance = clazz.newInstance();
+        boolean allFieldsMustBePresent = propertyClass.isAnnotationPresent(NotNull.class);
+        T propertyClassInstance = propertyClass.newInstance();
 
-        for (Field field : clazz.getDeclaredFields()) {
-            if(isStatic(field))
+        for (Field field : propertyClass.getDeclaredFields()) {
+            if (isStatic(field))
                 continue;
 
             field.setAccessible(true);
             String fieldName = field.getName();
             String fieldValue = fieldNameToValue.get(fieldName);
 
-            if(fieldValue != null) {
-                Class<?> fieldType = field.getType();
-                Object remappedValue = Optional
-                        .ofNullable(fieldTypeToItsConverterFromString.get(fieldType))
-                        .map(converter -> converter.apply(fieldValue))
-                        .orElseThrow(mappingFailedException(fieldValue, fieldType));
-
-                field.set(clazzInstance, remappedValue);
-            } else if(mustBePresent(field)) {
+            if (fieldValue != null) {
+                convertPropertyAndSetFieldValue(propertyClassInstance, field, fieldValue);
+            } else if (allFieldsMustBePresent || mustBePresent(field)) {
                 throw new RuntimeException("required field not present: " + fieldName);
-            } else {
-                log.info("optional field not present: " + fieldName);
             }
         }
 
-        return clazzInstance;
+        return propertyClassInstance;
+    }
+
+    private void convertPropertyAndSetFieldValue(T propertyClassInstance, Field field, String fieldValue) throws IllegalAccessException {
+        Class<?> fieldType = field.getType();
+
+        Object remappedValue = Optional
+                .ofNullable(fieldTypeToConverter.get(fieldType))
+                .map(converter -> tryToApplyConverter(fieldValue, converter, getTypeOfGenericIfFieldIsParametrized(field)))
+                .orElseThrow(mappingFailedException(fieldValue, fieldType));
+
+        field.set(propertyClassInstance, remappedValue);
+    }
+
+    private Class<?> getTypeOfGenericIfFieldIsParametrized(Field field) {
+        return ExceptionHelper
+                .tryGetValue(() -> (ParameterizedType) field.getGenericType())
+                .map(t -> (Class<?>) t.getActualTypeArguments()[0])
+                .orElse(null);
+    }
+
+    private Object tryToApplyConverter(String fieldValue, Converter converter, Class<?> typeOfGenericIfPresent) {
+        return ExceptionHelper
+                .tryGetValue(() -> converter.apply(fieldValue, typeOfGenericIfPresent))
+                .orElse(null);
     }
 
     private Supplier<RuntimeException> mappingFailedException(String fieldValue, Class<?> fieldType) {
@@ -77,23 +138,25 @@ public class PropertyLoader<T> {
                 .map(ClassLoader::getSystemResourceAsStream)
                 .map(PropertyLoader::propertiesFromInputStream)
                 .forEach(properties -> {
-                    properties.forEach((key, value) -> map.put((String)key, (String)value));
+                    properties.forEach((key, value) -> map.put((String) key, (String) value));
                 });
 
         return map;
     }
 
     private static Properties propertiesFromInputStream(InputStream inputStream) {
-        Properties properties = new Properties();
+        return ExceptionHelper
+                .remappingOnException(PropertyLoader::newUncheckedIOException)
+                .tryGetValue(() -> {
+                    Properties properties = new Properties();
+                    properties.load(inputStream);
+                    inputStream.close();
+                    return properties;
+                });
+    }
 
-        try {
-            properties.load(inputStream);
-            inputStream.close();
-        } catch (IOException e) {
-            throw new UncheckedIOException("failed loading properties", e);
-        }
-
-        return properties;
+    private static UncheckedIOException newUncheckedIOException(Exception e) {
+        return new UncheckedIOException("failed loading properties", (IOException) e);
     }
 
 }

@@ -1,5 +1,5 @@
-*.properties
+evernote.properties
+*authentication.properties
 *.iml
 .idea
-*.log
 target/

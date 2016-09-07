@@ -1,6 +1,6 @@
 package co.kukurin.environment;
 
-import co.kukurin.custom.exception.ExceptionHandler;
+import co.kukurin.custom.exception.ExceptionHelper;
 import com.evernote.auth.EvernoteAuth;
 import com.evernote.auth.EvernoteService;
 import com.evernote.clients.ClientFactory;
@@ -22,7 +22,7 @@ public class ApplicationEnvironment {
         EvernoteAuth evernoteAuth = new EvernoteAuth(evernoteService, evernoteToken);
         ClientFactory clientFactory = new ClientFactory(evernoteAuth);
 
-        return ExceptionHandler.getOrRethrowAsUnchecked(clientFactory::createNoteStoreClient);
+        return ExceptionHelper.getOrRethrowAsUnchecked(clientFactory::createNoteStoreClient);
     }
 
 }

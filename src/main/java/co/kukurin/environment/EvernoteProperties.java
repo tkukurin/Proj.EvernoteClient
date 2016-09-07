@@ -10,5 +10,6 @@ public class EvernoteProperties {
 
     @NotNull
     private String evernoteToken;
+    private String tags;
 
 }

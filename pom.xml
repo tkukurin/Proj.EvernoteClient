@@ -23,16 +23,21 @@
 
 
     <dependencies>
-        <dependency>
-            <groupId>com.evernote</groupId>
-            <artifactId>evernote-api</artifactId>
-            <version>${evernote-api.version}</version>
-        </dependency>
+        <!-- helpers -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <version>${lombok.version}</version>
         </dependency>
+
+        <!-- api -->
+        <dependency>
+            <groupId>com.evernote</groupId>
+            <artifactId>evernote-api</artifactId>
+            <version>${evernote-api.version}</version>
+        </dependency>
+
+        <!-- logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
@@ -43,6 +48,21 @@
             <artifactId>slf4j-log4j12</artifactId>
             <version>1.7.5</version>
         </dependency>
+
+        <!-- tests -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>3.3.0</version>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
 </project>
