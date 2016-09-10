@@ -1,17 +1,16 @@
 package co.kukurin;
 
 import co.kukurin.environment.ApplicationProperties;
+import co.kukurin.evernote.AsynchronousScrollableJList;
 import co.kukurin.evernote.EvernoteAdapter;
-import co.kukurin.evernote.EvernoteListModel;
+import co.kukurin.evernote.ListWithAsyncMetadata;
 import co.kukurin.gui.JFrameUtils;
 import com.evernote.edam.notestore.NoteFilter;
-import com.evernote.edam.notestore.NoteList;
 import com.evernote.edam.type.Note;
 import com.evernote.edam.type.Tag;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.swing.*;
-import javax.swing.event.ListSelectionEvent;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ComponentEvent;
@@ -33,8 +32,7 @@ public class Application extends JFrame {
     private JTextField titleTextField;
     private JTextArea contentTextArea;
     private JButton submitNoteButton;
-    private EvernoteListModel evernoteListModel;
-    private JList<String> noteJList;
+    private AsynchronousScrollableJList<Note> noteJList;
     private int fetchSize;
 
     public Application(EvernoteAdapter evernoteAdapter,
@@ -58,73 +56,72 @@ public class Application extends JFrame {
 
     private void initGuiElements() {
         this.titleTextField = new JTextField();
-        this.contentTextArea = new JTextArea();
-        this.submitNoteButton = new JButton(createAction("Submit note", this::onSubmitNoteClick));
-        this.evernoteListModel = new EvernoteListModel(getNoteSupplier(), () -> this.fetchSize);
-        this.noteJList = new JList<>(this.evernoteListModel);
 
-        JScrollPane noteListContainer = new JScrollPane(this.noteJList);
+        this.contentTextArea = new JTextArea();
         JScrollPane contentContainer = new JScrollPane(this.contentTextArea);
+
+        this.submitNoteButton = new JButton(createAction("Submit note", this::onSubmitNoteClick));
+
+        BiFunction<Integer, Integer, List<Note>> noteSupplier = getNoteSupplier();
+        ListWithAsyncMetadata<Note> listWithAsyncMetadata = new ListWithAsyncMetadata<>(noteSupplier.apply(0, 5));
+        this.noteJList = new AsynchronousScrollableJList<>(listWithAsyncMetadata, Note::getTitle, noteSupplier);
+
 
         setLayout(new BorderLayout(5, 5));
         add(this.titleTextField, BorderLayout.NORTH);
-        add(noteListContainer, BorderLayout.WEST);
+        add(this.noteJList, BorderLayout.WEST);
         add(contentContainer, BorderLayout.CENTER);
         add(this.submitNoteButton, BorderLayout.SOUTH);
-        //pack();
     }
 
-    public BiFunction<Integer,Integer,NoteList> getNoteSupplier() {
+    public BiFunction<Integer, Integer, List<Note>> getNoteSupplier() {
         NoteFilter filter = new NoteFilter();
         filter.setTagGuids(evernoteAdapter
                 .streamTagsByName(applicationProperties.getTags())
                 .map(Tag::getGuid)
                 .collect(Collectors.toList()));
 
-        return (startIndex, fetchSize) -> {
-            log.debug("sent fetch request to Evernote: from {}, size {}", startIndex, fetchSize);
-            return evernoteAdapter.findNotes(filter, startIndex, fetchSize);
-        };
-
 //        return (startIndex, fetchSize) -> {
-//            log.info("requested fetch with size {} and start index {}", fetchSize, startIndex);
-//            return new NoteList(startIndex, 20, this.mock__createListOfSize(startIndex, fetchSize));
+//            log.debug("sent fetch request to Evernote: from {}, size {}", startIndex, fetchSize);
+//            return evernoteAdapter.findNotes(filter, startIndex, fetchSize).getNotes();
 //        };
+
+        return (startIndex, fetchSize) -> {
+            log.info("requested fetch with size {} and start index {}", fetchSize, startIndex);
+            return this.mock__createListOfSize(startIndex, fetchSize);
+        };
+    }
+
+    private List<Note> mock__createListOfSize(Integer startIndex, Integer fetchSize) {
+        List<Note> notes = new ArrayList<>();
+        for(int i = startIndex; i < startIndex + fetchSize; i++) {
+            Note n = new Note();
+            n.setTitle("note " + i);
+            notes.add(n);
+        }
+
+        return notes;
     }
 
     private void initListeners() {
         this.addComponentListener(createResizeListener(this::updateFetchSizeOnResize));
-        this.noteJList.addListSelectionListener(this::displayNote);
+        //this.noteJList.addListSelectionListener(this::displayNote);
     }
 
     // TODO check for changes
-    private void displayNote(ListSelectionEvent listSelectionEvent) {
-        int selectedNoteIndex = listSelectionEvent.getFirstIndex();
-        Note selected = this.evernoteListModel.getNoteAt(selectedNoteIndex);
-
-        this.titleTextField.setText(selected.getTitle());
-        this.contentTextArea.setText(selected.getContent());
-
-        log.debug(selected.getContent());
-    }
+//    private void displayNote(ListSelectionEvent listSelectionEvent) {
+//        int selectedNoteIndex = listSelectionEvent.getFirstIndex();
+//        Note selected = this.evernoteListModel.getNoteAt(selectedNoteIndex);
+//
+//        this.titleTextField.setText(selected.getTitle());
+//        this.contentTextArea.setText(selected.getContent());
+//
+//        log.debug(selected.getContent());
+//    }
 
     private void updateFetchSizeOnResize(ComponentEvent componentEvent) {
-        this.fetchSize = this.noteJList.getLastVisibleIndex() - this.noteJList.getFirstVisibleIndex() + 1;
+        //this.fetchSize = this.noteJList.getLastVisibleIndex() - this.noteJList.getFirstVisibleIndex() + 1;
         log.info("listener invoked. " + this.fetchSize);
-    }
-
-    private List<Note> mock__createListOfSize(int startIndex, int size) {
-        List<Note> list = new ArrayList<>();
-        for (int i = 0; i < size; i++) {
-            list.add(mock__noteWithTitle("title " + (startIndex + i)));
-        }
-        return list;
-    }
-
-    private Note mock__noteWithTitle(String title) {
-        Note n = new Note();
-        n.setTitle(title);
-        return n;
     }
 
     private void onSubmitNoteClick(ActionEvent event) {

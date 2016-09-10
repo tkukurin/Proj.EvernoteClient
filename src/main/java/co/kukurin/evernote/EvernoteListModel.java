@@ -49,7 +49,6 @@ public class EvernoteListModel extends AbstractListModel<String> {
         return Optional.of(index)
                 .filter(i -> i >= firstNoteIndex && i < nextBatchFirstNoteIndex)
                 .map(i -> this.noteList.getNotes().get(i - firstNoteIndex));
-                //.map(Note::getTitle);
     }
 
     private Note loadNewBatchAndGetNoteAt(int index) {
@@ -59,7 +58,6 @@ public class EvernoteListModel extends AbstractListModel<String> {
                 .filter(list -> list.getNotesSize() > 0)
                 .map(list -> list.getNotes().get(0))
                 .get();
-                //.orElse(EMPTY_NOTE.getTitle());
     }
 
     private NoteList loadNewNotesWithBuffer(int startIndex) {
