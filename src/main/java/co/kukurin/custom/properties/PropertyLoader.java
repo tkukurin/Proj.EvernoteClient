@@ -5,6 +5,7 @@ import co.kukurin.custom.exception.ExceptionHelper;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
@@ -27,9 +28,10 @@ import java.util.stream.Collectors;
  * </p>
  *
  * <p>
- *     <b>NOTE</b> Currently does not allow collection items to contain commas. Also does not parse complex
- *     structures such as Set&lt;Set&lt;...&gt;&gt;.
- *     TODO "\," vs. ","
+ *     <b>NOTE</b> Currently does not allow collection items to contain commas (since collection items are expected to be
+ *     comma-split, e.g. "first,second" will produce collection with elements ["first", "second"]).
+ *
+ *     Also does not parse complex structures such as Set&lt;Set&lt;Object&gt;&gt;.
  * </p>
  *
  * @param <T>
@@ -44,9 +46,12 @@ public class PropertyLoader<T> {
         fieldTypeToConverter = new HashMap<>();
 
         fieldTypeToConverter.put(Integer.class, (string, cannotBeGeneric) -> Integer.parseInt(string));
+        fieldTypeToConverter.put(int.class, (string, cannotBeGeneric) -> Integer.parseInt(string));
+
         fieldTypeToConverter.put(String.class, (string, cannotBeGeneric) -> string);
 
         fieldTypeToConverter.put(Set.class, (string, typeOfGeneric) -> collect(Collectors.toSet(), typeOfGeneric, string));
+        fieldTypeToConverter.put(List.class, (string, typeOfGeneric) -> collect(Collectors.toList(), typeOfGeneric, string));
     }
 
     @SuppressWarnings("unchecked")
@@ -74,7 +79,7 @@ public class PropertyLoader<T> {
 
     public T initFromSystemResourceFiles(String... resourceNames) throws IllegalAccessException, InstantiationException {
         Map<String, String> fieldNameToValue = loadFieldNameToValueMapFromResources(resourceNames);
-        boolean allFieldsMustBePresent = propertyClass.isAnnotationPresent(NotNull.class);
+        boolean allFieldsMustBePresent = requiresValuePresence(propertyClass);
         T propertyClassInstance = propertyClass.newInstance();
 
         for (Field field : propertyClass.getDeclaredFields()) {
@@ -87,7 +92,7 @@ public class PropertyLoader<T> {
 
             if (fieldValue != null) {
                 convertPropertyAndSetFieldValue(propertyClassInstance, field, fieldValue);
-            } else if (allFieldsMustBePresent || mustBePresent(field)) {
+            } else if (allFieldsMustBePresent || requiresValuePresence(field)) {
                 throw new RuntimeException("required field not present: " + fieldName);
             }
         }
@@ -95,13 +100,13 @@ public class PropertyLoader<T> {
         return propertyClassInstance;
     }
 
-    private void convertPropertyAndSetFieldValue(T propertyClassInstance, Field field, String fieldValue) throws IllegalAccessException {
+    private void convertPropertyAndSetFieldValue(T propertyClassInstance, Field field, String fieldValueAsString) throws IllegalAccessException {
         Class<?> fieldType = field.getType();
 
         Object remappedValue = Optional
                 .ofNullable(fieldTypeToConverter.get(fieldType))
-                .map(converter -> tryToApplyConverter(fieldValue, converter, getTypeOfGenericIfFieldIsParametrized(field)))
-                .orElseThrow(mappingFailedException(fieldValue, fieldType));
+                .map(converter -> tryToApplyConverter(fieldValueAsString, converter, getTypeOfGenericIfFieldIsParametrized(field)))
+                .orElseThrow(mappingFailedException(fieldValueAsString, fieldType));
 
         field.set(propertyClassInstance, remappedValue);
     }
@@ -109,7 +114,8 @@ public class PropertyLoader<T> {
     private Class<?> getTypeOfGenericIfFieldIsParametrized(Field field) {
         return ExceptionHelper
                 .tryGetValue(() -> (ParameterizedType) field.getGenericType())
-                .map(t -> (Class<?>) t.getActualTypeArguments()[0])
+                .map(ParameterizedType::getActualTypeArguments)
+                .map(typeArguments -> (Class<?>) typeArguments[0])
                 .orElse(null);
     }
 
@@ -127,8 +133,8 @@ public class PropertyLoader<T> {
         return Modifier.isStatic(field.getModifiers());
     }
 
-    private boolean mustBePresent(Field field) {
-        return field.isAnnotationPresent(NotNull.class);
+    private boolean requiresValuePresence(AnnotatedElement annotatedElement) {
+        return annotatedElement.isAnnotationPresent(NotNull.class);
     }
 
     private static Map<String, String> loadFieldNameToValueMapFromResources(String[] resourceNames) {
@@ -146,7 +152,7 @@ public class PropertyLoader<T> {
 
     private static Properties propertiesFromInputStream(InputStream inputStream) {
         return ExceptionHelper
-                .remappingOnException(PropertyLoader::newUncheckedIOException)
+                .remappingOnException(PropertyLoader::getAsUncheckedIfThrowsIOException)
                 .tryGetValue(() -> {
                     Properties properties = new Properties();
                     properties.load(inputStream);
@@ -155,7 +161,9 @@ public class PropertyLoader<T> {
                 });
     }
 
-    private static UncheckedIOException newUncheckedIOException(Exception e) {
+    private static RuntimeException getAsUncheckedIfThrowsIOException(Exception e) {
+        if(e instanceof RuntimeException)
+            return (RuntimeException) e;
         return new UncheckedIOException("failed loading properties", (IOException) e);
     }
 
