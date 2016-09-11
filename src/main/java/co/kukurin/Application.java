@@ -6,6 +6,7 @@ import co.kukurin.evernote.EvernoteAdapter;
 import co.kukurin.evernote.ListWithAsyncMetadata;
 import co.kukurin.gui.JFrameUtils;
 import com.evernote.edam.notestore.NoteFilter;
+import com.evernote.edam.notestore.NoteList;
 import com.evernote.edam.type.Note;
 import com.evernote.edam.type.Tag;
 import lombok.extern.slf4j.Slf4j;
@@ -15,8 +16,9 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ComponentEvent;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.function.BiFunction;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 import static co.kukurin.gui.ActionFactory.createAction;
@@ -56,16 +58,11 @@ public class Application extends JFrame {
 
     private void initGuiElements() {
         this.titleTextField = new JTextField();
-
         this.contentTextArea = new JTextArea();
-        JScrollPane contentContainer = new JScrollPane(this.contentTextArea);
-
         this.submitNoteButton = new JButton(createAction("Submit note", this::onSubmitNoteClick));
+        this.noteJList = new AsynchronousScrollableJList<>(getNoteListWithAsyncMetadata(), Note::getTitle, getNoteListUpdater());
 
-        BiFunction<Integer, Integer, List<Note>> noteSupplier = getNoteSupplier();
-        ListWithAsyncMetadata<Note> listWithAsyncMetadata = new ListWithAsyncMetadata<>(noteSupplier.apply(0, 5));
-        this.noteJList = new AsynchronousScrollableJList<>(listWithAsyncMetadata, Note::getTitle, noteSupplier);
-
+        JScrollPane contentContainer = new JScrollPane(this.contentTextArea);
 
         setLayout(new BorderLayout(5, 5));
         add(this.titleTextField, BorderLayout.NORTH);
@@ -74,21 +71,24 @@ public class Application extends JFrame {
         add(this.submitNoteButton, BorderLayout.SOUTH);
     }
 
-    public BiFunction<Integer, Integer, List<Note>> getNoteSupplier() {
+    private ListWithAsyncMetadata<Note> getNoteListWithAsyncMetadata() {
+        NoteFilter emptyFilter = new NoteFilter();
+        return new ListWithAsyncMetadata<>(
+                getNoteListUpdater(),
+                () -> evernoteAdapter.findNotes(emptyFilter, 0, 1).getTotalNotes()
+        );
+    }
+
+    private BiConsumer<Integer, ListWithAsyncMetadata<Note>> getNoteListUpdater() {
         NoteFilter filter = new NoteFilter();
         filter.setTagGuids(evernoteAdapter
                 .streamTagsByName(applicationProperties.getTags())
                 .map(Tag::getGuid)
                 .collect(Collectors.toList()));
 
-//        return (startIndex, fetchSize) -> {
-//            log.debug("sent fetch request to Evernote: from {}, size {}", startIndex, fetchSize);
-//            return evernoteAdapter.findNotes(filter, startIndex, fetchSize).getNotes();
-//        };
-
-        return (startIndex, fetchSize) -> {
-            log.info("requested fetch with size {} and start index {}", fetchSize, startIndex);
-            return this.mock__createListOfSize(startIndex, fetchSize);
+        return (startIndex, list) -> {
+            NoteList noteList = this.evernoteAdapter.findNotes(filter, startIndex, applicationProperties.getFetchSize());
+            list.addAll(noteList.getNotes());
         };
     }
 

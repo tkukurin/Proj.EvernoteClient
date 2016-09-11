@@ -1,68 +1,48 @@
 package co.kukurin.evernote;
 
+import lombok.experimental.Delegate;
+
 import javax.swing.*;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
-public class ListWithAsyncMetadata<T> {
+public class ListWithAsyncMetadata<E> {
 
-    private static final int itemsBeforeCopy = 200;
+    private @Delegate ArrayList<E> currentlyActive;
+    private BiConsumer<Integer, ListWithAsyncMetadata<E>> batchSupplier;
+    private Supplier<Integer> totalNumberOfItemsFetchableSupplier;
 
-    private final ArrayList<T> currentlyActive;
-    private List<T> futures;
-
-    public ListWithAsyncMetadata(List<T> currentlyActive) {
-        this.currentlyActive = new ArrayList<>(currentlyActive);
-        this.futures = new LinkedList<>();
+    public ListWithAsyncMetadata(BiConsumer<Integer, ListWithAsyncMetadata<E>> batchSupplier,
+                                 Supplier<Integer> totalNumberOfItemsFetchableSupplier) {
+        this.batchSupplier = batchSupplier;
+        this.totalNumberOfItemsFetchableSupplier = totalNumberOfItemsFetchableSupplier;
+        this.currentlyActive = new ArrayList<>();
     }
 
-    public void add(T element) {
-        this.futures.add(element);
-        appendFuturesToArrayListIfRequired();
+    public boolean hasMoreItems() {
+        return currentlyActive.size() < totalNumberOfItemsFetchableSupplier.get();
     }
 
-    public void addAll(Collection<T> elements) {
-        this.futures.addAll(elements);
-        appendFuturesToArrayListIfRequired();
+    public void loadNewBatch() {
+        this.batchSupplier.accept(this.size(), this);
     }
 
-    private void appendFuturesToArrayListIfRequired() {
-        if(this.futures.size() > itemsBeforeCopy) {
-            this.currentlyActive.addAll(this.futures);
-            this.futures = new LinkedList<T>();
-        }
-    }
-
-    public T get(int index) {
-        return currentlyActive.get(index);
-    }
-
-    public int activeSize() {
-        return currentlyActive.size();
-    }
-    public int totalSize() { return currentlyActive.size() + futures.size(); }
-
-    public ListModel<T> asModel() {
+    public ListModel<E> asModel() {
         return asModel(Function.identity());
     }
 
-    public <R> ListModel<R> asModel(Function<T, R> converter) {
+    public <R> ListModel<R> asModel(Function<E, R> converter) {
         return new AbstractListModel<R>() {
             @Override
             public int getSize() {
-                return currentlyActive.size() + futures.size();
+                return currentlyActive.size();
             }
 
             @Override
             public R getElementAt(int index) {
-                int activeSize = currentlyActive.size();
-                T element = index >= activeSize
-                        ? futures.get(index - activeSize)
-                        : currentlyActive.get(index);
-
+                E element = currentlyActive.get(index);
                 return converter.apply(element);
             }
         };
