@@ -1,5 +1,6 @@
 package co.kukurin.evernote;
 
+import co.kukurin.custom.Optional;
 import co.kukurin.gui.ListenerFactory;
 
 import javax.swing.*;
@@ -39,23 +40,32 @@ public class AsynchronousScrollableJList<T> extends JScrollPane {
     private void updateListModelIfNecessary(Object ignoredEvent) {
         JList<?> view = getView();
 
-        Rectangle visibleCells = view.getCellBounds(view.getFirstVisibleIndex(), view.getLastVisibleIndex());
-        this.boundsRectangle = view.getBounds(this.boundsRectangle);
+        Optional.ofNullable(view.getCellBounds(view.getFirstVisibleIndex(), view.getLastVisibleIndex()))
+                .filter(visibleCellBounds -> {
+                    this.boundsRectangle = view.getBounds(this.boundsRectangle);
+                    return !updateInProgress && this.boundsRectangle.getHeight() < visibleCellBounds.getHeight();
+                })
+                .ifPresent(resizedToLargerArea -> runAsyncUpdate())
+                .orElseDo(() -> {
+                    int currentScrollBarPosition = this.getVerticalScrollBar().getValue();
+                    int totalScrollBarHeight = this.getVerticalScrollBar().getHeight();
+                    int maxScrollBarValue = this.getVerticalScrollBar().getMaximum();
 
-        int currentScrollBarPosition = this.getVerticalScrollBar().getValue();
-        int totalScrollBarHeight = this.getVerticalScrollBar().getHeight();
-        int maxScrollBarValue = this.getVerticalScrollBar().getMaximum();
+                    if(!updateInProgress && shouldUpdate(currentScrollBarPosition, totalScrollBarHeight, maxScrollBarValue)) {
+                        runAsyncUpdate();
+                    }
+                });
 
-        if(!updateInProgress && shouldUpdate(currentScrollBarPosition, totalScrollBarHeight, maxScrollBarValue)) {
-            this.updateInProgress = true;
+    }
 
-            CompletableFuture
-                    .runAsync(this::getNewBatchForCurrentlyActiveItems)
-                    .thenRun(() -> {
-                        this.updateInProgress = false;
-                        SwingUtilities.invokeLater(this::updateListModelFromCurrentlyActive);
-                    });
-        }
+    private void runAsyncUpdate() {
+        this.updateInProgress = true;
+        CompletableFuture
+                .runAsync(this::getNewBatchForCurrentlyActiveItems)
+                .thenRun(() -> {
+                    this.updateInProgress = false;
+                    SwingUtilities.invokeLater(this::updateListModelFromCurrentlyActive);
+                });
     }
 
     private boolean shouldUpdate(int currentScrollBarPosition, int totalScrollBarHeight, int maxScrollBarValue) {

@@ -8,6 +8,9 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+// TODO rename this
+// TODO synchronizer (i.e., cache total size locally and then update only when synchronization is requested.)
+// TODO evernote always returns notes newer -> older? => older will never be added.
 public class ListWithAsyncMetadata<E> {
 
     private @Delegate ArrayList<E> currentlyActive;
