@@ -1,9 +1,9 @@
 package co.kukurin;
 
+import co.kukurin.async.DataSupplier;
 import co.kukurin.environment.ApplicationProperties;
 import co.kukurin.evernote.AsynchronousScrollableJList;
 import co.kukurin.evernote.EvernoteAdapter;
-import co.kukurin.evernote.ListWithAsyncMetadata;
 import co.kukurin.gui.JFrameUtils;
 import com.evernote.edam.notestore.NoteFilter;
 import com.evernote.edam.notestore.NoteList;
@@ -16,7 +16,6 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ComponentEvent;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -60,7 +59,7 @@ public class Application extends JFrame {
         this.titleTextField = new JTextField();
         this.contentTextArea = new JTextArea();
         this.submitNoteButton = new JButton(createAction("Submit note", this::onSubmitNoteClick));
-        this.noteJList = new AsynchronousScrollableJList<>(getNoteListWithAsyncMetadata(), Note::getTitle, getNoteListUpdater());
+        this.noteJList = new AsynchronousScrollableJList<>(new DefaultListModel<>(), getNoteListUpdater());
 
         JScrollPane contentContainer = new JScrollPane(this.contentTextArea);
 
@@ -71,24 +70,16 @@ public class Application extends JFrame {
         add(this.submitNoteButton, BorderLayout.SOUTH);
     }
 
-    private ListWithAsyncMetadata<Note> getNoteListWithAsyncMetadata() {
-        NoteFilter emptyFilter = new NoteFilter();
-        return new ListWithAsyncMetadata<>(
-                getNoteListUpdater(),
-                () -> evernoteAdapter.findNotes(emptyFilter, 0, 1).getTotalNotes()
-        );
-    }
-
-    private BiConsumer<Integer, ListWithAsyncMetadata<Note>> getNoteListUpdater() {
+    private DataSupplier<Note> getNoteListUpdater() {
         NoteFilter filter = new NoteFilter();
         filter.setTagGuids(evernoteAdapter
                 .streamTagsByName(applicationProperties.getTags())
                 .map(Tag::getGuid)
                 .collect(Collectors.toList()));
 
-        return (startIndex, list) -> {
-            NoteList noteList = this.evernoteAdapter.findNotes(filter, startIndex, applicationProperties.getFetchSize());
-            list.addAll(noteList.getNotes());
+        return dataSupplierInfo -> {
+            NoteList noteList = this.evernoteAdapter.findNotes(filter, dataSupplierInfo.getFetchStartIndex(), dataSupplierInfo.getFetchSize());
+            return noteList.getNotes();
         };
     }
 

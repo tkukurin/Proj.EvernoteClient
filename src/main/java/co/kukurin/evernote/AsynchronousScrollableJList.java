@@ -1,49 +1,44 @@
 package co.kukurin.evernote;
 
+import co.kukurin.async.DataSupplier;
+import co.kukurin.async.DataSupplierInfo;
+import co.kukurin.async.DataSupplierInfoFactory;
 import co.kukurin.custom.Optional;
 import co.kukurin.gui.ListenerFactory;
 
 import javax.swing.*;
 import java.awt.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
 
 public class AsynchronousScrollableJList<T> extends JScrollPane {
 
-    private final ListWithAsyncMetadata<T> activeItems;
-    private final Function<T, String> itemConverterToString;
-    private final BiConsumer<Integer, ListWithAsyncMetadata<T>>  batchSupplier;
     private volatile boolean updateInProgress;
     private Rectangle boundsRectangle;
+    private final DataSupplier<T> dataSupplier;
 
-    public AsynchronousScrollableJList(ListWithAsyncMetadata<T> activeItems,
-                                       Function<T, String> itemConverterToString,
-                                       BiConsumer<Integer, ListWithAsyncMetadata<T>> batchSupplier) {
-        this(new JList<>(activeItems.asModel(itemConverterToString)), activeItems, itemConverterToString, batchSupplier);
+    public AsynchronousScrollableJList(DefaultListModel<T> listModel,
+                                       DataSupplier<T> dataSupplier) {
+        this(new JList<>(listModel), dataSupplier);
     }
 
-    private AsynchronousScrollableJList(JList<String> list,
-                                        ListWithAsyncMetadata<T> activeItems,
-                                        Function<T, String> itemConverterToString,
-                                        BiConsumer<Integer, ListWithAsyncMetadata<T>> batchSupplier) {
+    private AsynchronousScrollableJList(JList<T> list, DataSupplier<T> dataSupplier) {
         super(list);
-
-        this.itemConverterToString = itemConverterToString;
-        this.activeItems = activeItems;
-        this.batchSupplier = batchSupplier;
-
+        this.getView().setFixedCellWidth(200);
+        this.dataSupplier = dataSupplier;
         this.getViewport().addChangeListener(this::updateListModelIfNecessary);
         this.getViewport().addComponentListener(ListenerFactory.createResizeListener(this::updateListModelIfNecessary));
     }
 
     private void updateListModelIfNecessary(Object ignoredEvent) {
-        JList<?> view = getView();
+        if(this.updateInProgress) {
+            return;
+        }
 
+        JList<?> view = getView();
         Optional.ofNullable(view.getCellBounds(view.getFirstVisibleIndex(), view.getLastVisibleIndex()))
                 .filter(visibleCellBounds -> {
                     this.boundsRectangle = view.getBounds(this.boundsRectangle);
-                    return !updateInProgress && this.boundsRectangle.getHeight() < visibleCellBounds.getHeight();
+                    return this.boundsRectangle.getHeight() < visibleCellBounds.getHeight();
                 })
                 .ifPresent(resizedToLargerArea -> runAsyncUpdate())
                 .orElseDo(() -> {
@@ -51,7 +46,7 @@ public class AsynchronousScrollableJList<T> extends JScrollPane {
                     int totalScrollBarHeight = this.getVerticalScrollBar().getHeight();
                     int maxScrollBarValue = this.getVerticalScrollBar().getMaximum();
 
-                    if(!updateInProgress && shouldUpdate(currentScrollBarPosition, totalScrollBarHeight, maxScrollBarValue)) {
+                    if(shouldUpdate(currentScrollBarPosition, totalScrollBarHeight, maxScrollBarValue)) {
                         runAsyncUpdate();
                     }
                 });
@@ -62,10 +57,7 @@ public class AsynchronousScrollableJList<T> extends JScrollPane {
         this.updateInProgress = true;
         CompletableFuture
                 .runAsync(this::getNewBatchForCurrentlyActiveItems)
-                .thenRun(() -> {
-                    this.updateInProgress = false;
-                    SwingUtilities.invokeLater(this::updateListModelFromCurrentlyActive);
-                });
+                .thenRun(() -> this.updateInProgress = false);
     }
 
     private boolean shouldUpdate(int currentScrollBarPosition, int totalScrollBarHeight, int maxScrollBarValue) {
@@ -73,18 +65,17 @@ public class AsynchronousScrollableJList<T> extends JScrollPane {
     }
 
     private void getNewBatchForCurrentlyActiveItems() {
-        // this.activeItems.hasMoreItems()
-        this.activeItems.loadNewBatch();
-        //this.batchSupplier.accept(this.activeItems.size(), this.activeItems);
-    }
+        DefaultListModel<T> model = getModel();
+        DataSupplierInfo dataSupplierInfo = DataSupplierInfoFactory.getDataSupplier(model.getSize(), 5);
 
-    private void updateListModelFromCurrentlyActive() {
-        this.getView().setModel(this.activeItems.asModel(this.itemConverterToString));
+        this.dataSupplier.getData(dataSupplierInfo).forEach(model::addElement);
     }
 
     @SuppressWarnings("unchecked")
-    private JList<String> getView() {
-        return ((JList<String>) this.getViewport().getView());
+    private JList<T> getView() {
+        return ((JList<T>) this.getViewport().getView());
     }
-
+    private DefaultListModel<T> getModel() {
+        return (DefaultListModel<T>) getView().getModel();
+    }
 }
