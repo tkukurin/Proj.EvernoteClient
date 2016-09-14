@@ -6,11 +6,15 @@ import com.evernote.auth.EvernoteAuth;
 import com.evernote.auth.EvernoteService;
 import com.evernote.clients.ClientFactory;
 import com.evernote.clients.NoteStoreClient;
+import com.evernote.edam.error.EDAMNotFoundException;
+import com.evernote.edam.error.EDAMSystemException;
+import com.evernote.edam.error.EDAMUserException;
 import com.evernote.edam.notestore.NoteCollectionCounts;
 import com.evernote.edam.notestore.NoteFilter;
 import com.evernote.edam.notestore.NoteList;
 import com.evernote.edam.type.Note;
 import com.evernote.edam.type.Tag;
+import com.evernote.thrift.TException;
 
 import java.util.Collections;
 import java.util.List;
@@ -34,29 +38,37 @@ public class EvernoteAdapter {
         this.noteStoreClient = noteStoreClient;
     }
 
-    public Note updateNote(Note note) {
-        return getOrRethrowAsUnchecked(() -> this.noteStoreClient.updateNote(note));
+    public EvernoteEntry updateNote(EvernoteEntry note) {
+        return getOrRethrowAsUnchecked(() -> new EvernoteEntry(this.noteStoreClient.updateNote(note.toNote())));
     }
 
-    public Note storeNote(String title, String content) {
+    public EvernoteEntry storeNote(String title, String content) {
         Note note = new Note();
         note.setTitle(title);
         note.setContent(addEvernoteMarkupLanguageMetadata(content));
 
-        return getOrRethrowAsUnchecked(() -> this.noteStoreClient.createNote(note));
+        return getOrRethrowAsUnchecked(() -> mapAsDelegate(this.noteStoreClient.createNote(note)));
     }
 
-    public Note storeIfNonexistentOrUpdate(Note note) {
+    public EvernoteEntry storeIfNonexistentOrUpdate(EvernoteEntry note) {
         return Optional.ofNullable(note.getGuid())
                     .map(noteGuid -> this.updateNote(note))
                     .orElseGet(() -> this.storeNote(note.getTitle(), note.getContent()));
     }
 
-    public NoteList findNotes(NoteFilter noteFilter, int startIndex, int fetchSize) {
-        return getOrRethrowAsUnchecked(() -> this.noteStoreClient.findNotes(noteFilter, startIndex, fetchSize));
+    public EvernoteEntryList findNotes(NoteFilter noteFilter, int startIndex, int fetchSize) {
+        return getOrRethrowAsUnchecked(() -> mapAsDelegate(this.noteStoreClient.findNotes(noteFilter, startIndex, fetchSize)));
     }
 
-    public String getNoteContents(Note note) {
+    private EvernoteEntry mapAsDelegate(Note note) throws EDAMUserException, EDAMSystemException, EDAMNotFoundException, TException {
+        return new EvernoteEntry(note);
+    }
+
+    private EvernoteEntryList mapAsDelegate(NoteList notes) {
+        return new EvernoteEntryList(notes);
+    }
+
+    public String getNoteContents(EvernoteEntry note) {
         return getOrRethrowAsUnchecked(() -> noteStoreClient.getNoteContent(note.getGuid()));
     }
 

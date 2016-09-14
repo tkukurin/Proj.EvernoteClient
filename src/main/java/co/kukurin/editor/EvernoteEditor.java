@@ -6,6 +6,8 @@ import javax.swing.*;
 import java.awt.*;
 
 public class EvernoteEditor extends JPanel implements ModifiableContentHolder {
+
+    // TODO move this somewhere in properties.
     private static final Font editorFont = new Font("Consolas", Font.PLAIN, 14);
     private final JScrollPane scrollPane;
 

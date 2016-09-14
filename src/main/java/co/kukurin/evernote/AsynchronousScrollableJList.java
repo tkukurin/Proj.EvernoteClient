@@ -13,6 +13,7 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import java.awt.*;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.Executors.*;
@@ -29,9 +30,8 @@ public class AsynchronousScrollableJList<T> extends JPanel {
     private final DataSupplier<T> dataSupplier;
     private final JScrollPane pane;
 
-    public AsynchronousScrollableJList(DefaultListModel<T> listModel,
-                                       DataSupplier<T> dataSupplier) {
-        this(new JList<>(listModel), dataSupplier);
+    public AsynchronousScrollableJList(DataSupplier<T> dataSupplier) {
+        this(new JList<>(new DefaultListModel<>()), dataSupplier);
     }
 
     public Optional<T> getSelectedValue() { return Optional.ofNullable(getView().getSelectedValue()); }

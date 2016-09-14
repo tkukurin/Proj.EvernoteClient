@@ -7,6 +7,8 @@ import co.kukurin.editor.EvernoteEditor;
 import co.kukurin.environment.ApplicationProperties;
 import co.kukurin.evernote.AsynchronousScrollableJList;
 import co.kukurin.evernote.EvernoteAdapter;
+import co.kukurin.evernote.EvernoteEntry;
+import co.kukurin.evernote.EvernoteEntryList;
 import co.kukurin.gui.JFrameUtils;
 import co.kukurin.gui.PredefinedKeyEvents;
 import com.evernote.edam.notestore.NoteFilter;
@@ -47,7 +49,7 @@ public class Application extends JFrame {
     private final PredefinedKeyEvents predefinedKeyEvents;
 
     private EvernoteEditor contentEditor;
-    private AsynchronousScrollableJList<Note> noteJList;
+    private AsynchronousScrollableJList<EvernoteEntry> noteJList;
     private JTextField titleTextField;
     private JButton submitNoteButton;
     private CompletableFuture<String> noteContentFetchInProgress;
@@ -90,7 +92,7 @@ public class Application extends JFrame {
         this.titleTextField = new JTextField();
         this.contentEditor = new EvernoteEditor();
         this.submitNoteButton = new JButton(createAction("Submit note", this::onSubmitNoteClick));
-        this.noteJList = new AsynchronousScrollableJList<>(new DefaultListModel<>(), getNoteListUpdater(evernoteAdapter, applicationProperties.getTags()));
+        this.noteJList = new AsynchronousScrollableJList<>(getNoteListUpdater(evernoteAdapter, applicationProperties.getTags()));
         this.noteJList.addListSelectionListener(this::displayNote);
 
         setLayout(new BorderLayout(5, 5));
@@ -104,7 +106,7 @@ public class Application extends JFrame {
         keyboardFocusManager.addKeyEventDispatcher(predefinedKeyEvents::eventInvoked);
     }
 
-    private DataSupplier<Note> getNoteListUpdater(EvernoteAdapter evernoteAdapter, Set<String> tagsToInclude) {
+    private DataSupplier<EvernoteEntry> getNoteListUpdater(EvernoteAdapter evernoteAdapter, Set<String> tagsToInclude) {
         NoteFilter filter = new NoteFilter();
         filter.setTagGuids(evernoteAdapter
                 .streamTagsByName(tagsToInclude)
@@ -112,8 +114,8 @@ public class Application extends JFrame {
                 .collect(Collectors.toList()));
 
         return dataSupplierInfo -> {
-            NoteList noteList = this.evernoteAdapter.findNotes(filter, dataSupplierInfo.getFetchStartIndex(), dataSupplierInfo.getFetchSize());
-            return noteList.getNotes();
+            EvernoteEntryList evernoteEntryList = this.evernoteAdapter.findNotes(filter, dataSupplierInfo.getFetchStartIndex(), dataSupplierInfo.getFetchSize());
+            return evernoteEntryList.getNotes();
         };
     }
 
