@@ -31,7 +31,6 @@ public class ActionFactory {
         };
 
         action.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(acceleratorKey));
-        //action.putValue(Action.ACTION_COMMAND_KEY, acceleratorKey);
         return action;
     }
 

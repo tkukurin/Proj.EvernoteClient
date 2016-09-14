@@ -3,10 +3,13 @@ package co.kukurin.evernote;
 import co.kukurin.async.DataSupplier;
 import co.kukurin.async.DataSupplierInfo;
 import co.kukurin.async.DataSupplierInfoFactory;
+import co.kukurin.async.EvernoteExecutors;
 import co.kukurin.custom.Optional;
 import co.kukurin.gui.ListenerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.swing.*;
+import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import java.awt.*;
 import java.util.concurrent.Executor;
@@ -16,9 +19,10 @@ import static java.util.concurrent.Executors.*;
 
 // TODO this should actually implement scroll pane as a delegate
 // since e.g. AsynchronousScrollableJList should not allow add() method to be called on it.
+@Slf4j
 public class AsynchronousScrollableJList<T> extends JPanel {
 
-    private static final Executor notesFetchExecutor = newSingleThreadExecutor();
+    private static final Executor notesFetchExecutor = EvernoteExecutors.defaultExecutor; //newSingleThreadExecutor();
 
     private volatile boolean updateInProgress;
     private Rectangle boundsRectangle;
@@ -44,12 +48,13 @@ public class AsynchronousScrollableJList<T> extends JPanel {
 
         this.pane.getViewport().addChangeListener(this::updateModelIfNecessaryOnScroll);
         this.pane.getViewport().addComponentListener(ListenerFactory.createResizeListener(this::updateModelIfNecessaryOnResize));
+        this.getView().addListSelectionListener(this::updateModelIfNecessaryOnSelectionChange);
 
         setLayout(new BorderLayout());
         add(this.pane, BorderLayout.CENTER);
     }
 
-    private void updateModelIfNecessaryOnScroll(Object ignoredEvent) {
+    private void updateModelIfNecessaryOnScroll(Object unused) {
         if(this.updateInProgress) {
             return;
         }
@@ -69,7 +74,7 @@ public class AsynchronousScrollableJList<T> extends JPanel {
         return (maxScrollBarValue - currentScrollBarPosition < totalScrollBarHeight || !this.pane.getVerticalScrollBar().isVisible());
     }
 
-    private void updateModelIfNecessaryOnResize(Object ignoredEvent) {
+    private void updateModelIfNecessaryOnResize(Object unused) {
         if(this.updateInProgress) { // TODO implement some kind of updateQueue instead?
             return;
         }
@@ -83,9 +88,27 @@ public class AsynchronousScrollableJList<T> extends JPanel {
                 .ifPresent(resizedToLargerArea -> runAsyncUpdate());
     }
 
+    private void updateModelIfNecessaryOnSelectionChange(ListSelectionEvent unused) {
+        log.info("model size {}", this.getModel().getSize());
+
+        boolean isSelectedLastItemInList = this.getModel().size() == this.getView().getMaxSelectionIndex() + 1;
+        if(!this.updateInProgress && isSelectedLastItemInList) {
+            runAsyncUpdate();
+        }
+    }
+
     private void runAsyncUpdate() {
         this.updateInProgress = true;
-        runAsync(this::getNewBatchForCurrentlyActiveItems, notesFetchExecutor).thenRun(() -> this.updateInProgress = false);
+        log.info("running update.");
+        runAsync(this::getNewBatchForCurrentlyActiveItems, notesFetchExecutor)
+                .thenRun(() -> {
+                    this.updateInProgress = false;
+                    log.info("update done!");
+                })
+                .exceptionally(e -> {
+                    log.info("exception occurred {}", e);
+                    return null;
+                });
     }
 
     private void getNewBatchForCurrentlyActiveItems() {

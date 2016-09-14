@@ -1,6 +1,7 @@
 package co.kukurin;
 
 import co.kukurin.async.DataSupplier;
+import co.kukurin.async.EvernoteExecutors;
 import co.kukurin.custom.Optional;
 import co.kukurin.editor.EvernoteEditor;
 import co.kukurin.environment.ApplicationProperties;
@@ -38,7 +39,7 @@ import static java.util.concurrent.Executors.newSingleThreadExecutor;
 public class Application extends JFrame {
 
     // TODO where to put this, and whether to increase size, and whether to have different send/receive executors.
-    private static final Executor evernoteCommunicationExecutor = newSingleThreadExecutor();
+    private static final Executor evernoteCommunicationExecutor = EvernoteExecutors.defaultExecutor; //newSingleThreadExecutor();
 
     // TODO whether to remove applicationProperties as a member variable
     private final ApplicationProperties applicationProperties;
@@ -139,7 +140,7 @@ public class Application extends JFrame {
         requestInProgress.cancel(irrelevantValueBecauseIgnoredByImplementation);
     }
 
-    private void onSubmitNoteClick(Object ignoredEvent) {
+    private void onSubmitNoteClick(ActionEvent unused) {
         String noteTitle = this.titleTextField.getText();
         String noteContent = this.contentEditor.getText();
 
