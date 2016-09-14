@@ -39,7 +39,7 @@ public class EvernoteAdapter {
     }
 
     public EvernoteEntry updateNote(EvernoteEntry note) {
-        return getOrRethrowAsUnchecked(() -> new EvernoteEntry(this.noteStoreClient.updateNote(note.toNote())));
+        return getOrRethrowAsUnchecked(() -> mapAsDelegate(this.noteStoreClient.updateNote(note.toNote())));
     }
 
     public EvernoteEntry storeNote(String title, String content) {
