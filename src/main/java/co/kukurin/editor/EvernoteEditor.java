@@ -5,7 +5,7 @@ import co.kukurin.environment.Statics;
 import javax.swing.*;
 import java.awt.*;
 
-public class EvernoteEditor extends JPanel implements ModifiableContentHolder {
+public class EvernoteEditor extends JPanel {
 
     // TODO move this somewhere in properties.
     private static final Font editorFont = new Font("Consolas", Font.PLAIN, 14);
@@ -14,7 +14,6 @@ public class EvernoteEditor extends JPanel implements ModifiableContentHolder {
     public EvernoteEditor() {
         JTextArea textArea = new JTextArea();
         textArea.setFont(editorFont);
-
         this.scrollPane = new JScrollPane(textArea);
 
         setLayout(Statics.defaultBorderLayout);
@@ -29,11 +28,6 @@ public class EvernoteEditor extends JPanel implements ModifiableContentHolder {
     @Override
     public boolean requestFocusInWindow() {
         return getView().requestFocusInWindow();
-    }
-
-    @Override
-    public boolean hasModifiedContent() {
-        return false;
     }
 
     private JTextArea getView() { return (JTextArea) this.scrollPane.getViewport().getView(); }

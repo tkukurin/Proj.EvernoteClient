@@ -142,10 +142,10 @@ public class Application extends JFrame {
         String noteTitle = this.titleTextField.getText();
         String noteContent = this.contentEditor.getText();
 
-        this.contentEditor.setText("");
-        this.titleTextField.setText("");
-
         supplyAsync(() -> this.evernoteAdapter.storeNote(noteTitle, noteContent), evernoteCommunicationExecutor)
-                .thenAccept(note -> log.info("stored note {}", note));
+                .thenAccept(note -> {
+                    this.noteJList.getModel().add(0, note); // TODO fix this prepending.
+                    this.noteJList.setSelectedIndex(0);
+                });
     }
 }

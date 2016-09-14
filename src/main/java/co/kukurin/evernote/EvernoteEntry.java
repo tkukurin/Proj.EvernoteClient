@@ -38,8 +38,9 @@ public class EvernoteEntry {
         delegate.setContent(content);
     }
 
+    // TODO getCleanContent ?
     public String getContent() {
-        return delegate.getContent();
+        return EvernoteMarkupParser.cleanup(delegate.getContent());
     }
 
     public byte[] getContentHash() {

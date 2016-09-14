@@ -122,6 +122,10 @@ public class AsynchronousScrollableJList<T> extends JPanel {
         this.getView().addListSelectionListener(listener);
     }
 
+    public void setSelectedIndex(int index) {
+        getView().setSelectedIndex(index);
+    }
+
     @Override
     public boolean requestFocusInWindow() {
         return getView().requestFocusInWindow();

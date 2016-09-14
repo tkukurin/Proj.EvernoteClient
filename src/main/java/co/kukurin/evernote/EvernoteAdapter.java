@@ -13,8 +13,10 @@ import com.evernote.edam.notestore.NoteCollectionCounts;
 import com.evernote.edam.notestore.NoteFilter;
 import com.evernote.edam.notestore.NoteList;
 import com.evernote.edam.type.Note;
+import com.evernote.edam.type.NoteSortOrder;
 import com.evernote.edam.type.Tag;
 import com.evernote.thrift.TException;
+import com.evernote.thrift.protocol.TField;
 
 import java.util.Collections;
 import java.util.List;
@@ -57,6 +59,9 @@ public class EvernoteAdapter {
     }
 
     public EvernoteEntryList findNotes(NoteFilter noteFilter, int startIndex, int fetchSize) {
+        noteFilter.setAscending(false);
+        noteFilter.setOrder(NoteSortOrder.UPDATED.getValue());
+
         return getOrRethrowAsUnchecked(() -> mapAsDelegate(this.noteStoreClient.findNotes(noteFilter, startIndex, fetchSize)));
     }
 
