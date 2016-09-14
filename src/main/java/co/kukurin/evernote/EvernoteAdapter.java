@@ -52,7 +52,7 @@ public class EvernoteAdapter {
         return getOrRethrowAsUnchecked(() -> mapAsDelegate(this.noteStoreClient.createNote(note)));
     }
 
-    public EvernoteEntry storeIfNonexistentOrUpdate(EvernoteEntry note) {
+    public EvernoteEntry storeIfNonexistentElseUpdate(EvernoteEntry note) {
         return Optional.ofNullable(note.getGuid())
                     .map(noteGuid -> this.updateNote(note))
                     .orElseGet(() -> this.storeNote(note.getTitle(), note.getContent()));
