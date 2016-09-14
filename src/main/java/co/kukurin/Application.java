@@ -19,14 +19,18 @@ import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiPredicate;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static co.kukurin.gui.ActionFactory.createAction;
+import static java.awt.event.KeyEvent.*;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
@@ -62,8 +66,13 @@ public class Application extends JFrame {
     private PredefinedKeyEvents createPredefinedKeyEvents() {
         PredefinedKeyEvents predefinedKeyEvents = new PredefinedKeyEvents();
 
-        predefinedKeyEvents.addKeyEvent(e -> e.isAltDown() && e.getKeyCode() == KeyEvent.VK_1, () -> this.noteJList.requestFocusInWindow());
-        predefinedKeyEvents.addKeyEvent(e -> e.getKeyCode() == KeyEvent.VK_ESCAPE, () -> this.contentEditor.requestFocusInWindow());
+        Predicate<KeyEvent> isAlt = InputEvent::isAltDown;
+        Predicate<KeyEvent> isControl = InputEvent::isControlDown;
+        Function<Integer, Predicate<KeyEvent>> keyPressed = keyCode -> (e -> e.getKeyCode() == keyCode);
+
+        predefinedKeyEvents.addKeyEvent(isAlt.and(keyPressed.apply(VK_1)), () -> this.noteJList.requestFocusInWindow());
+        predefinedKeyEvents.addKeyEvent(keyPressed.apply(VK_ESCAPE), () -> this.contentEditor.requestFocusInWindow());
+        predefinedKeyEvents.addKeyEvent(isControl.and(keyPressed.apply(VK_ENTER)), () -> this.onSubmitNoteClick(null));
 
         return predefinedKeyEvents;
     }
@@ -130,7 +139,7 @@ public class Application extends JFrame {
         requestInProgress.cancel(irrelevantValueBecauseIgnoredByImplementation);
     }
 
-    private void onSubmitNoteClick(ActionEvent event) {
+    private void onSubmitNoteClick(Object ignoredEvent) {
         String noteTitle = this.titleTextField.getText();
         String noteContent = this.contentEditor.getText();
 

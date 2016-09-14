@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
 import java.util.function.Consumer;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
@@ -29,7 +30,8 @@ public class ActionFactory {
             }
         };
 
-        action.putValue(Action.ACCELERATOR_KEY, acceleratorKey);
+        action.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(acceleratorKey));
+        //action.putValue(Action.ACTION_COMMAND_KEY, acceleratorKey);
         return action;
     }
 
