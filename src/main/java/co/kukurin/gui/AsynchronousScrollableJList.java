@@ -1,4 +1,4 @@
-package co.kukurin.evernote;
+package co.kukurin.gui;
 
 import co.kukurin.async.DataSupplier;
 import co.kukurin.async.DataSupplierInfo;
