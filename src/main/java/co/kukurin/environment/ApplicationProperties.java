@@ -14,10 +14,10 @@ public class ApplicationProperties {
     private Integer minWidth;
     private int minHeight;
 
-    // TODO either only evernoteProperties or appplicationProperties should have this.
-    private Integer fetchSize;
-
     @Setter
     private Set<String> tags;
+
+    @Setter
+    private Integer fetchSize;
 
 }

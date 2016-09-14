@@ -1,9 +1,12 @@
 package co.kukurin.gui;
 
 import javax.swing.*;
+import javax.swing.border.Border;
 import java.awt.*;
 
 public class JFrameUtils {
+
+    private static final Border sensiblePanelMargin = BorderFactory.createEmptyBorder(5, 5, 5, 5);
 
     private JFrameUtils() {}
 
@@ -12,6 +15,7 @@ public class JFrameUtils {
                                                String title,
                                                int minWidth,
                                                int minHeight) {
+        window.getRootPane().setBorder(sensiblePanelMargin);
         window.setTitle(title);
         window.setMinimumSize(new Dimension(minWidth, minHeight));
         window.setDefaultCloseOperation(defaultCloseOperation);

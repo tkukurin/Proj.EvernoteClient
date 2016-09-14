@@ -34,6 +34,10 @@ public class EvernoteAdapter {
         this.noteStoreClient = noteStoreClient;
     }
 
+    public Note updateNote(Note note) {
+        return getOrRethrowAsUnchecked(() -> this.noteStoreClient.updateNote(note));
+    }
+
     public Note storeNote(String title, String content) {
         Note note = new Note();
         note.setTitle(title);
@@ -42,8 +46,18 @@ public class EvernoteAdapter {
         return getOrRethrowAsUnchecked(() -> this.noteStoreClient.createNote(note));
     }
 
+    public Note storeIfNonexistentOrUpdate(Note note) {
+        return Optional.ofNullable(note.getGuid())
+                    .map(noteGuid -> this.updateNote(note))
+                    .orElseGet(() -> this.storeNote(note.getTitle(), note.getContent()));
+    }
+
     public NoteList findNotes(NoteFilter noteFilter, int startIndex, int fetchSize) {
         return getOrRethrowAsUnchecked(() -> this.noteStoreClient.findNotes(noteFilter, startIndex, fetchSize));
+    }
+
+    public String getNoteContents(Note note) {
+        return getOrRethrowAsUnchecked(() -> noteStoreClient.getNoteContent(note.getGuid()));
     }
 
     public List<Tag> getTagsByName(Set<String> tagNames) {

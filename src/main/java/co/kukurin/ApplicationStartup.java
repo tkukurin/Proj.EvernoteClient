@@ -5,15 +5,19 @@ import co.kukurin.custom.properties.PropertyLoader;
 import co.kukurin.environment.ApplicationProperties;
 import co.kukurin.environment.EvernoteProperties;
 import co.kukurin.evernote.EvernoteAdapter;
+import co.kukurin.gui.PredefinedKeyEvents;
 import com.evernote.auth.EvernoteAuth;
 import com.evernote.auth.EvernoteService;
 import com.evernote.clients.ClientFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.swing.*;
+import java.awt.*;
+import java.awt.event.KeyEvent;
 import java.io.IOException;
 
 import static co.kukurin.custom.exception.ExceptionHelper.getOrRethrowAsUnchecked;
+import static java.awt.KeyboardFocusManager.*;
 
 @Slf4j
 public class ApplicationStartup {
@@ -27,7 +31,11 @@ public class ApplicationStartup {
                     EvernoteAdapter evernoteAdapter = getEvernoteAdapter(evernoteProperties);
                     log.info("initialized application");
 
-                    SwingUtilities.invokeLater(() -> new Application(evernoteAdapter, applicationProperties));
+                    SwingUtilities.invokeLater(() -> new Application(
+                            evernoteAdapter,
+                            applicationProperties,
+                            getCurrentKeyboardFocusManager())
+                    );
                 });
     }
 

@@ -29,9 +29,7 @@ public class ExceptionHelper {
         return new ExceptionHandler(exceptionHandler);
     }
 
-    public static
-        ExceptionRemapper<RuntimeException>
-        remappingOnException(Function<Exception, RuntimeException> exceptionMapper) {
+    public static ExceptionRemapper<RuntimeException> remappingOnException(Function<Exception, RuntimeException> exceptionMapper) {
         return new ExceptionRemapper<>(exceptionMapper);
     }
 
@@ -39,13 +37,12 @@ public class ExceptionHelper {
         return getOrRemapAsUnchecked(supplier, RuntimeException::new);
     }
 
-    public static <T, U extends RuntimeException> T getOrRethrowAsUnchecked(
-            ThrowableSupplier<T> supplier,
-            Supplier<U> exceptionSupplier) {
+    public static <T, U extends RuntimeException> T getOrRethrowAsUnchecked(ThrowableSupplier<T> valueSupplier,
+                                                                            Supplier<U> exceptionIfValueSupplierFails) {
         try {
-            return supplier.get();
+            return valueSupplier.get();
         } catch (Exception e) {
-            throw exceptionSupplier.get();
+            throw exceptionIfValueSupplierFails.get();
         }
     }
 

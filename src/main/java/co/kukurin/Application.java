@@ -1,53 +1,74 @@
 package co.kukurin;
 
 import co.kukurin.async.DataSupplier;
+import co.kukurin.custom.Optional;
+import co.kukurin.editor.EvernoteEditor;
 import co.kukurin.environment.ApplicationProperties;
 import co.kukurin.evernote.AsynchronousScrollableJList;
 import co.kukurin.evernote.EvernoteAdapter;
 import co.kukurin.gui.JFrameUtils;
+import co.kukurin.gui.PredefinedKeyEvents;
 import com.evernote.edam.notestore.NoteFilter;
 import com.evernote.edam.notestore.NoteList;
 import com.evernote.edam.type.Note;
 import com.evernote.edam.type.Tag;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.swing.*;
+import javax.swing.event.ListSelectionEvent;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.awt.event.ComponentEvent;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.BiConsumer;
+import java.awt.event.KeyEvent;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 
 import static co.kukurin.gui.ActionFactory.createAction;
-import static co.kukurin.gui.ListenerFactory.createResizeListener;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 @Slf4j
 public class Application extends JFrame {
 
+    // TODO where to put this, and whether to increase size, and whether to have different send/receive executors.
+    private static final Executor evernoteCommunicationExecutor = newSingleThreadExecutor();
+
+    // TODO whether to remove applicationProperties as a member variable
     private final ApplicationProperties applicationProperties;
     private final EvernoteAdapter evernoteAdapter;
+    private final PredefinedKeyEvents predefinedKeyEvents;
 
-    private JTextField titleTextField;
-    private JTextArea contentTextArea;
-    private JButton submitNoteButton;
+    private EvernoteEditor contentEditor;
     private AsynchronousScrollableJList<Note> noteJList;
-    private int fetchSize;
+    private JTextField titleTextField;
+    private JButton submitNoteButton;
+    private CompletableFuture<String> noteContentFetchInProgress;
 
-    public Application(EvernoteAdapter evernoteAdapter,
-                       ApplicationProperties applicationProperties) {
+    Application(EvernoteAdapter evernoteAdapter,
+                ApplicationProperties applicationProperties,
+                KeyboardFocusManager keyboardFocusManager) {
         this.evernoteAdapter = evernoteAdapter;
         this.applicationProperties = applicationProperties;
-        this.fetchSize = applicationProperties.getFetchSize();
+        this.predefinedKeyEvents = createPredefinedKeyEvents();
 
-        initWindowFromProperties();
-        initGuiElements();
-        initListeners();
+        initWindowFromProperties(this.applicationProperties);
+        initGuiElements(this.evernoteAdapter, this.applicationProperties);
+        initListeners(keyboardFocusManager);
     }
 
-    private void initWindowFromProperties() {
+    private PredefinedKeyEvents createPredefinedKeyEvents() {
+        PredefinedKeyEvents predefinedKeyEvents = new PredefinedKeyEvents();
+
+        predefinedKeyEvents.addKeyEvent(e -> e.isAltDown() && e.getKeyCode() == KeyEvent.VK_1, () -> this.noteJList.requestFocusInWindow());
+        predefinedKeyEvents.addKeyEvent(e -> e.getKeyCode() == KeyEvent.VK_ESCAPE, () -> this.contentEditor.requestFocusInWindow());
+
+        return predefinedKeyEvents;
+    }
+
+    private void initWindowFromProperties(ApplicationProperties applicationProperties) {
         JFrameUtils.displayAndAddProperties(this,
                 WindowConstants.EXIT_ON_CLOSE,
                 applicationProperties.getTitle(),
@@ -55,25 +76,28 @@ public class Application extends JFrame {
                 applicationProperties.getMinHeight());
     }
 
-    private void initGuiElements() {
+    private void initGuiElements(EvernoteAdapter evernoteAdapter, ApplicationProperties applicationProperties) {
         this.titleTextField = new JTextField();
-        this.contentTextArea = new JTextArea();
+        this.contentEditor = new EvernoteEditor();
         this.submitNoteButton = new JButton(createAction("Submit note", this::onSubmitNoteClick));
-        this.noteJList = new AsynchronousScrollableJList<>(new DefaultListModel<>(), getNoteListUpdater());
-
-        JScrollPane contentContainer = new JScrollPane(this.contentTextArea);
+        this.noteJList = new AsynchronousScrollableJList<>(new DefaultListModel<>(), getNoteListUpdater(evernoteAdapter, applicationProperties.getTags()));
+        this.noteJList.addListSelectionListener(this::displayNote);
 
         setLayout(new BorderLayout(5, 5));
         add(this.titleTextField, BorderLayout.NORTH);
         add(this.noteJList, BorderLayout.WEST);
-        add(contentContainer, BorderLayout.CENTER);
+        add(this.contentEditor, BorderLayout.CENTER);
         add(this.submitNoteButton, BorderLayout.SOUTH);
     }
 
-    private DataSupplier<Note> getNoteListUpdater() {
+    private void initListeners(KeyboardFocusManager keyboardFocusManager) {
+        keyboardFocusManager.addKeyEventDispatcher(predefinedKeyEvents::eventInvoked);
+    }
+
+    private DataSupplier<Note> getNoteListUpdater(EvernoteAdapter evernoteAdapter, Set<String> tagsToInclude) {
         NoteFilter filter = new NoteFilter();
         filter.setTagGuids(evernoteAdapter
-                .streamTagsByName(applicationProperties.getTags())
+                .streamTagsByName(tagsToInclude)
                 .map(Tag::getGuid)
                 .collect(Collectors.toList()));
 
@@ -83,45 +107,37 @@ public class Application extends JFrame {
         };
     }
 
-    private List<Note> mock__createListOfSize(Integer startIndex, Integer fetchSize) {
-        List<Note> notes = new ArrayList<>();
-        for(int i = startIndex; i < startIndex + fetchSize; i++) {
-            Note n = new Note();
-            n.setTitle("note " + i);
-            notes.add(n);
-        }
+    // TODO check for edit changes on currently active note
+    // allow multiple requests
+    // also check if it's the same URL we're dealing with as noteFetchInProgress
+    private void displayNote(ListSelectionEvent unused) {
+        this.noteJList.getSelectedValue().ifPresent(selected -> {
+            Optional.ofNullable(this.noteContentFetchInProgress)
+                    .ifPresent(this::cancelRequestInProgress);
 
-        return notes;
+            this.noteContentFetchInProgress = supplyAsync(() -> this.evernoteAdapter.getNoteContents(selected), evernoteCommunicationExecutor);
+            this.noteContentFetchInProgress.thenAccept(noteContents -> {
+                    selected.setContent(noteContents);
+
+                    this.titleTextField.setText(selected.getTitle());
+                    this.contentEditor.setText(selected.getContent());
+            });
+        });
     }
 
-    private void initListeners() {
-        this.addComponentListener(createResizeListener(this::updateFetchSizeOnResize));
-        //this.noteJList.addListSelectionListener(this::displayNote);
-    }
-
-    // TODO check for changes
-//    private void displayNote(ListSelectionEvent listSelectionEvent) {
-//        int selectedNoteIndex = listSelectionEvent.getFirstIndex();
-//        Note selected = this.evernoteListModel.getNoteAt(selectedNoteIndex);
-//
-//        this.titleTextField.setText(selected.getTitle());
-//        this.contentTextArea.setText(selected.getContent());
-//
-//        log.debug(selected.getContent());
-//    }
-
-    private void updateFetchSizeOnResize(ComponentEvent componentEvent) {
-        //this.fetchSize = this.noteJList.getLastVisibleIndex() - this.noteJList.getFirstVisibleIndex() + 1;
-        log.info("listener invoked. " + this.fetchSize);
+    private void cancelRequestInProgress(CompletableFuture<String> requestInProgress) {
+        final boolean irrelevantValueBecauseIgnoredByImplementation = true;
+        requestInProgress.cancel(irrelevantValueBecauseIgnoredByImplementation);
     }
 
     private void onSubmitNoteClick(ActionEvent event) {
         String noteTitle = this.titleTextField.getText();
-        String noteContent = this.contentTextArea.getText();
-        this.contentTextArea.setText("");
+        String noteContent = this.contentEditor.getText();
+
+        this.contentEditor.setText("");
         this.titleTextField.setText("");
 
-        supplyAsync(() -> this.evernoteAdapter.storeNote(noteTitle, noteContent))
+        supplyAsync(() -> this.evernoteAdapter.storeNote(noteTitle, noteContent), evernoteCommunicationExecutor)
                 .thenAccept(note -> log.info("stored note {}", note));
     }
 }
