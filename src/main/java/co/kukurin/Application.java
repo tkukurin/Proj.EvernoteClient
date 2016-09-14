@@ -28,7 +28,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static co.kukurin.gui.ActionFactory.createAction;
+import static co.kukurin.gui.factories.ActionFactory.createAction;
 import static java.awt.event.KeyEvent.*;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;

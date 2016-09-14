@@ -1,4 +1,4 @@
-package co.kukurin.gui;
+package co.kukurin.gui.factories;
 
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;

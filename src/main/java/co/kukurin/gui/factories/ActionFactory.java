@@ -1,4 +1,4 @@
-package co.kukurin.gui;
+package co.kukurin.gui.factories;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;

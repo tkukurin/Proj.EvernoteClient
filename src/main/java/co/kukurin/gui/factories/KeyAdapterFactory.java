@@ -1,4 +1,4 @@
-package co.kukurin.gui;
+package co.kukurin.gui.factories;
 
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;

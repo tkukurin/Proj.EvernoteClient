@@ -5,7 +5,7 @@ import co.kukurin.async.DataSupplierInfo;
 import co.kukurin.async.DataSupplierInfoFactory;
 import co.kukurin.async.EvernoteExecutors;
 import co.kukurin.custom.Optional;
-import co.kukurin.gui.ListenerFactory;
+import co.kukurin.gui.factories.ListenerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.swing.*;
@@ -13,10 +13,8 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import java.awt.*;
 import java.util.concurrent.Executor;
-import java.util.function.Function;
 
 import static java.util.concurrent.CompletableFuture.runAsync;
-import static java.util.concurrent.Executors.*;
 
 // TODO this should actually implement scroll pane as a delegate
 // since e.g. AsynchronousScrollableJList should not allow add() method to be called on it.

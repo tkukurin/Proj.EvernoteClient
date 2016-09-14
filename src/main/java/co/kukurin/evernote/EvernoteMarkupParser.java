@@ -4,15 +4,17 @@ package co.kukurin.evernote;
 public class EvernoteMarkupParser {
 
     public static String cleanup(String contents) {
-        final int sizeOfEnNoteTag = 9;
-        int startingIndexOfContent = contents.indexOf("<en-note>") + sizeOfEnNoteTag;
+        int startingIndexOfEnNoteTag = contents.indexOf("<en-note>");
         int endingIndexOfContent = contents.indexOf("</en-note>");
 
-        return makeSureThatMarkupTagsExist(contents, startingIndexOfContent, endingIndexOfContent);
+        return makeSureThatMarkupTagsExist(contents, startingIndexOfEnNoteTag, endingIndexOfContent);
     }
 
-    private static String makeSureThatMarkupTagsExist(String contents, int startingIndexOfContent, int endingIndexOfContent) {
-        return startingIndexOfContent >= 0 && endingIndexOfContent >= 0
+    private static String makeSureThatMarkupTagsExist(String contents, int startingIndexOfEnNoteTag, int endingIndexOfContent) {
+        final int sizeOfEnNoteTag = 9;
+        final int startingIndexOfContent = startingIndexOfEnNoteTag + sizeOfEnNoteTag;
+
+        return startingIndexOfEnNoteTag > -1 && endingIndexOfContent > startingIndexOfContent
                 ? contents.substring(startingIndexOfContent, endingIndexOfContent)
                 : contents;
     }
