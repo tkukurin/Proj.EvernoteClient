@@ -130,9 +130,7 @@ public class Application extends JFrame {
             this.noteContentFetchInProgress = supplyAsync(() -> this.evernoteAdapter.getNoteContents(selected), evernoteCommunicationExecutor);
             this.noteContentFetchInProgress.thenAccept(noteContents -> {
                     selected.setContent(noteContents);
-
-                    this.titleTextField.setText(selected.getTitle());
-                    this.contentEditor.setText(selected.getContent());
+                    setDisplayedEntry(selected);
             });
         });
     }
@@ -140,6 +138,11 @@ public class Application extends JFrame {
     private void cancelRequestInProgress(CompletableFuture<String> requestInProgress) {
         final boolean irrelevantValueBecauseIgnoredByImplementation = true;
         requestInProgress.cancel(irrelevantValueBecauseIgnoredByImplementation);
+    }
+
+    private void setDisplayedEntry(EvernoteEntry evernoteEntry) {
+        this.titleTextField.setText(evernoteEntry.getTitle());
+        this.contentEditor.setText(evernoteEntry.getContent());
     }
 
     private void onSubmitNoteClick(ActionEvent unused) {
