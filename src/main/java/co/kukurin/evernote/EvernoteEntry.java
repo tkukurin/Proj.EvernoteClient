@@ -126,4 +126,18 @@ public class EvernoteEntry {
         return this.delegate.getTitle();
     }
 
+    @Override
+    public boolean equals(Object o) { // TODO guid should probably be enough to compare the entries?
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        EvernoteEntry that = (EvernoteEntry) o;
+        return delegate.getGuid().equals(that.delegate.getGuid());
+
+    }
+
+    @Override
+    public int hashCode() {
+        return delegate.getGuid().hashCode();
+    }
 }

@@ -118,7 +118,11 @@ public class Application extends JFrame {
     // TODO check for edit changes on currently active note
     // allow multiple requests
     // also check if it's the same URL we're dealing with as noteFetchInProgress
-    private void displayNote(ListSelectionEvent unused) {
+    private void displayNote(ListSelectionEvent event) {
+        if(event.getValueIsAdjusting()) {
+            return;
+        }
+
         this.noteJList.getSelectedValue().ifPresent(selected -> {
             Optional.ofNullable(this.noteContentFetchInProgress)
                     .ifPresent(this::cancelRequestInProgress);
