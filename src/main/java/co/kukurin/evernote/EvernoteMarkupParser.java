@@ -5,7 +5,7 @@ public class EvernoteMarkupParser {
 
     public static String cleanup(String contents) {
         int startingIndexOfEnNoteTag = contents.indexOf("<en-note>");
-        int endingIndexOfContent = contents.indexOf("</en-note>");
+        int endingIndexOfContent = contents.lastIndexOf("</en-note>");
 
         return makeSureThatMarkupTagsExist(contents, startingIndexOfEnNoteTag, endingIndexOfContent);
     }
