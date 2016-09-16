@@ -3,11 +3,11 @@ package co.kukurin.editor;
 import co.kukurin.custom.Optional;
 import co.kukurin.environment.Statics;
 import co.kukurin.evernote.EvernoteEntry;
-import co.kukurin.gui.factories.DocumentListenerFactory;
 
 import javax.swing.*;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
+import java.util.function.Consumer;
 
 import static co.kukurin.gui.factories.DocumentListenerFactory.*;
 import static java.awt.BorderLayout.*;
@@ -51,27 +51,18 @@ public class EvernoteEditor extends JPanel {
     }
 
     private void initListeners(JTextArea textArea, JTextField textField) {
-        DocumentListener contentChangeListener = createContentChangeListener();
+        DocumentListener contentChangeListener = createEntryModifyingListener(entry -> entry.setContent(this.getContent()));
         textArea.getDocument().addDocumentListener(contentChangeListener);
 
-        DocumentListener titleChangeListener = createTitleChangeListener();
+        DocumentListener titleChangeListener = createEntryModifyingListener(entry -> entry.setTitle(this.getTitle()));
         textField.getDocument().addDocumentListener(titleChangeListener);
     }
 
-    private DocumentListener createContentChangeListener() {
+    private DocumentListener createEntryModifyingListener(Consumer<EvernoteEntry> entryConsumer) {
         return createGeneralDocumentListener(e ->
                 Optional.ofNullable(this.activeEntry).ifPresent(entry -> {
                     entry.setWasModified(true);
-                    entry.setContent(this.getContent());
-                })
-        );
-    }
-
-    private DocumentListener createTitleChangeListener() {
-        return createGeneralDocumentListener(e ->
-                Optional.ofNullable(this.activeEntry).ifPresent(entry -> {
-                    entry.setWasModified(true);
-                    entry.setTitle(this.getTitle());
+                    entryConsumer.accept(entry);
                 })
         );
     }
