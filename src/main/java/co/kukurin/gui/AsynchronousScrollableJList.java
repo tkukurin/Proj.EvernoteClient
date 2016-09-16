@@ -19,8 +19,6 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 @Slf4j
 public class AsynchronousScrollableJList<T> extends JPanel {
 
-    private static final Executor notesFetchExecutor = EvernoteExecutors.defaultExecutor;
-
     private volatile boolean updateInProgress;
     private Rectangle boundsRectangle;
     private final DataSupplier<T> dataSupplier;
@@ -96,7 +94,7 @@ public class AsynchronousScrollableJList<T> extends JPanel {
     private void runAsyncUpdate() {
         this.updateInProgress = true;
         log.info("running update.");
-        runAsync(this::getNewBatchForCurrentlyActiveItems, notesFetchExecutor)
+        runAsync(this::getNewBatchForCurrentlyActiveItems, EvernoteExecutors.defaultExecutor)
                 .thenRun(() -> {
                     this.updateInProgress = false;
                     log.info("update done!");

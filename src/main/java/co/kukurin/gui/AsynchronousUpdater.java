@@ -14,8 +14,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 @Slf4j
 public class AsynchronousUpdater<T> {
 
-    private static final Executor notesFetchExecutor = EvernoteExecutors.defaultExecutor;
-
     private volatile boolean updateInProgress;
     private final DataSupplier<T> dataSupplier;
     private final Consumer<Collection<T>> uponUpdateAcceptor;
@@ -35,7 +33,7 @@ public class AsynchronousUpdater<T> {
         log.info("running update.");
 
         completedFuture(dataSupplierInfo)
-                .thenApplyAsync(this.dataSupplier::getData, notesFetchExecutor)
+                .thenApplyAsync(this.dataSupplier::getData, EvernoteExecutors.defaultExecutor)
                 .thenAccept(notes -> {
                     this.updateInProgress = false;
                     this.uponUpdateAcceptor.accept(notes);
