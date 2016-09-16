@@ -6,8 +6,10 @@ import co.kukurin.evernote.EvernoteEntry;
 import co.kukurin.gui.factories.DocumentListenerFactory;
 
 import javax.swing.*;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 
+import static co.kukurin.gui.factories.DocumentListenerFactory.*;
 import static java.awt.BorderLayout.*;
 
 public class EvernoteEditor extends JPanel {
@@ -41,27 +43,37 @@ public class EvernoteEditor extends JPanel {
     }
 
     public String getContent() { return getView().getText(); }
-
     public String getTitle() { return this.textField.getText(); }
+
     @Override
     public boolean requestFocusInWindow() {
         return getView().requestFocusInWindow();
     }
 
     private void initListeners(JTextArea textArea, JTextField textField) {
-        textArea.getDocument().addDocumentListener(DocumentListenerFactory.createGeneralDocumentListener(e ->
+        DocumentListener contentChangeListener = createContentChangeListener();
+        textArea.getDocument().addDocumentListener(contentChangeListener);
+
+        DocumentListener titleChangeListener = createTitleChangeListener();
+        textField.getDocument().addDocumentListener(titleChangeListener);
+    }
+
+    private DocumentListener createContentChangeListener() {
+        return createGeneralDocumentListener(e ->
                 Optional.ofNullable(this.activeEntry).ifPresent(entry -> {
                     entry.setWasModified(true);
                     entry.setContent(this.getContent());
                 })
-        ));
+        );
+    }
 
-        textField.getDocument().addDocumentListener(DocumentListenerFactory.createGeneralDocumentListener(e ->
+    private DocumentListener createTitleChangeListener() {
+        return createGeneralDocumentListener(e ->
                 Optional.ofNullable(this.activeEntry).ifPresent(entry -> {
                     entry.setWasModified(true);
                     entry.setTitle(this.getTitle());
                 })
-        ));
+        );
     }
 
     private JTextArea getView() { return (JTextArea) this.scrollPane.getViewport().getView(); }
