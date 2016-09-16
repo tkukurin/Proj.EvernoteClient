@@ -16,8 +16,6 @@ import java.util.concurrent.Executor;
 
 import static java.util.concurrent.CompletableFuture.runAsync;
 
-// TODO this should actually implement scroll pane as a delegate
-// since e.g. AsynchronousScrollableJList should not allow add() method to be called on it.
 @Slf4j
 public class AsynchronousScrollableJList<T> extends JPanel {
 
