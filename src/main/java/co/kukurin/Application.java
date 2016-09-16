@@ -47,7 +47,6 @@ public class Application extends JFrame {
 
     private EvernoteEditor contentEditor;
     private AsynchronousScrollableJList<EvernoteEntry> noteJList;
-    private JTextField titleTextField;
 
     Application(EvernoteAdapter evernoteAdapter,
                 ApplicationProperties applicationProperties,
@@ -92,7 +91,6 @@ public class Application extends JFrame {
     }
 
     private void initGuiElements(EvernoteAdapter evernoteAdapter, ApplicationProperties applicationProperties) {
-        this.titleTextField = new JTextField();
         this.contentEditor = new EvernoteEditor();
         this.noteJList = new AsynchronousScrollableJList<>(getEvernoteEntrySupplier(evernoteAdapter, applicationProperties.getTags()), applicationProperties.getFetchSize());
         this.noteJList.addListSelectionListener(this::displayNote);
@@ -102,7 +100,6 @@ public class Application extends JFrame {
                 .createContainerFor(synchronizeButton, submitNoteButton)
                 .withLayoutConstraints(LINE_START, LINE_END);
 
-        add(this.titleTextField, PAGE_START);
         add(this.noteJList, LINE_START);
         add(this.contentEditor, CENTER);
         add(syncAndSubmitButton, PAGE_END);
@@ -151,13 +148,12 @@ public class Application extends JFrame {
     }
 
     private void setDisplayedEntry(EvernoteEntry evernoteEntry) {
-        this.titleTextField.setText(evernoteEntry.getTitle());
-        this.contentEditor.setText(evernoteEntry.getContent());
+        this.contentEditor.setEntry(evernoteEntry);
     }
 
     private void onSubmitNoteClick(ActionEvent unused) {
-        String noteTitle = this.titleTextField.getText();
-        String noteContent = this.contentEditor.getText();
+        String noteTitle = this.contentEditor.getTitle();
+        String noteContent = this.contentEditor.getContent();
 
         supplyAsync(() -> this.evernoteAdapter.storeNote(noteTitle, noteContent), evernoteCommunicationExecutor)
                 .thenAccept(note -> {
