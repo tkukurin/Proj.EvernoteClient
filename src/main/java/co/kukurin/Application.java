@@ -1,16 +1,15 @@
 package co.kukurin;
 
 import co.kukurin.async.DataSupplier;
+import co.kukurin.async.DataSupplierInfoFactory;
 import co.kukurin.async.EvernoteExecutors;
 import co.kukurin.custom.Optional;
 import co.kukurin.editor.EvernoteEditor;
 import co.kukurin.environment.ApplicationProperties;
-import co.kukurin.gui.AsynchronousScrollableJList;
 import co.kukurin.evernote.EvernoteAdapter;
 import co.kukurin.evernote.EvernoteEntry;
 import co.kukurin.evernote.EvernoteEntryList;
-import co.kukurin.gui.JFrameUtils;
-import co.kukurin.gui.PredefinedKeyEvents;
+import co.kukurin.gui.*;
 import com.evernote.edam.notestore.NoteFilter;
 import com.evernote.edam.type.Tag;
 import lombok.extern.slf4j.Slf4j;
@@ -29,9 +28,9 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static co.kukurin.gui.factories.ActionFactory.createAction;
+import static java.awt.BorderLayout.*;
 import static java.awt.event.KeyEvent.*;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
-import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 @Slf4j
 public class Application extends JFrame {
@@ -42,38 +41,39 @@ public class Application extends JFrame {
     // TODO whether to remove applicationProperties as a member variable
     private final ApplicationProperties applicationProperties;
     private final EvernoteAdapter evernoteAdapter;
-    private final PredefinedKeyEvents predefinedKeyEvents;
+    private final ShortcutResponders shortcutResponders;
 
     private EvernoteEditor contentEditor;
     private AsynchronousScrollableJList<EvernoteEntry> noteJList;
     private JTextField titleTextField;
-    private JButton submitNoteButton;
     private CompletableFuture<String> noteContentFetchInProgress;
+    private AsynchronousUpdater<EvernoteEntry> updater;
 
     Application(EvernoteAdapter evernoteAdapter,
                 ApplicationProperties applicationProperties,
                 KeyboardFocusManager keyboardFocusManager) {
         this.evernoteAdapter = evernoteAdapter;
         this.applicationProperties = applicationProperties;
-        this.predefinedKeyEvents = createPredefinedKeyEvents();
+        this.shortcutResponders = createPredefinedKeyEvents();
+        this.updater = new AsynchronousUpdater<>(getNoteListUpdater(evernoteAdapter, applicationProperties.getTags()), notes -> log.info("notes {}", notes));
 
         initWindowFromProperties(this.applicationProperties);
         initGuiElements(this.evernoteAdapter, this.applicationProperties);
         initListeners(keyboardFocusManager);
     }
 
-    private PredefinedKeyEvents createPredefinedKeyEvents() {
-        PredefinedKeyEvents predefinedKeyEvents = new PredefinedKeyEvents();
+    private ShortcutResponders createPredefinedKeyEvents() {
+        ShortcutResponders shortcutResponders = new ShortcutResponders();
 
         Predicate<KeyEvent> isAlt = InputEvent::isAltDown;
         Predicate<KeyEvent> isControl = InputEvent::isControlDown;
         Function<Integer, Predicate<KeyEvent>> keyPressed = keyCode -> (e -> e.getKeyCode() == keyCode);
 
-        predefinedKeyEvents.addKeyEvent(isAlt.and(keyPressed.apply(VK_1)), () -> this.noteJList.requestFocusInWindow());
-        predefinedKeyEvents.addKeyEvent(keyPressed.apply(VK_ESCAPE), () -> this.contentEditor.requestFocusInWindow());
-        predefinedKeyEvents.addKeyEvent(isControl.and(keyPressed.apply(VK_ENTER)), () -> this.onSubmitNoteClick(null));
+        shortcutResponders.addKeyEvent(isAlt.and(keyPressed.apply(VK_1)), () -> this.noteJList.requestFocusInWindow());
+        shortcutResponders.addKeyEvent(keyPressed.apply(VK_ESCAPE), () -> this.contentEditor.requestFocusInWindow());
+        shortcutResponders.addKeyEvent(isControl.and(keyPressed.apply(VK_ENTER)), () -> this.onSubmitNoteClick(null));
 
-        return predefinedKeyEvents;
+        return shortcutResponders;
     }
 
     private void initWindowFromProperties(ApplicationProperties applicationProperties) {
@@ -87,19 +87,22 @@ public class Application extends JFrame {
     private void initGuiElements(EvernoteAdapter evernoteAdapter, ApplicationProperties applicationProperties) {
         this.titleTextField = new JTextField();
         this.contentEditor = new EvernoteEditor();
-        this.submitNoteButton = new JButton(createAction("Submit note", this::onSubmitNoteClick));
         this.noteJList = new AsynchronousScrollableJList<>(getNoteListUpdater(evernoteAdapter, applicationProperties.getTags()));
         this.noteJList.addListSelectionListener(this::displayNote);
+        JButton submitNoteButton = new JButton(createAction("Submit note", this::onSubmitNoteClick));
+        JButton synchronizeButton = new JButton(createAction("Synchronize", this::onSynchronizeClick));
+        JPanel syncAndSubmitButton = ComponentUtils
+                .createContainerFor(synchronizeButton, submitNoteButton)
+                .usingConstraints(LINE_START, LINE_END);
 
-        setLayout(new BorderLayout(5, 5));
-        add(this.titleTextField, BorderLayout.NORTH);
-        add(this.noteJList, BorderLayout.WEST);
-        add(this.contentEditor, BorderLayout.CENTER);
-        add(this.submitNoteButton, BorderLayout.SOUTH);
+        add(this.titleTextField, PAGE_START);
+        add(this.noteJList, LINE_START);
+        add(this.contentEditor, CENTER);
+        add(syncAndSubmitButton, PAGE_END);
     }
 
     private void initListeners(KeyboardFocusManager keyboardFocusManager) {
-        keyboardFocusManager.addKeyEventDispatcher(predefinedKeyEvents::eventInvoked);
+        keyboardFocusManager.addKeyEventDispatcher(shortcutResponders::eventInvoked);
     }
 
     private DataSupplier<EvernoteEntry> getNoteListUpdater(EvernoteAdapter evernoteAdapter, Set<String> tagsToInclude) {
@@ -154,5 +157,9 @@ public class Application extends JFrame {
                     this.noteJList.getModel().add(0, note); // TODO fix this prepending.
                     this.noteJList.setSelectedIndex(0);
                 });
+    }
+
+    private void onSynchronizeClick(ActionEvent unused) {
+        this.updater.runAsyncUpdate(DataSupplierInfoFactory.getDataSupplier(0, applicationProperties.getFetchSize()));
     }
 }

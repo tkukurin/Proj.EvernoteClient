@@ -19,7 +19,7 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 @Slf4j
 public class AsynchronousScrollableJList<T> extends JPanel {
 
-    private static final Executor notesFetchExecutor = EvernoteExecutors.defaultExecutor; //newSingleThreadExecutor();
+    private static final Executor notesFetchExecutor = EvernoteExecutors.defaultExecutor;
 
     private volatile boolean updateInProgress;
     private Rectangle boundsRectangle;
@@ -39,7 +39,7 @@ public class AsynchronousScrollableJList<T> extends JPanel {
     private AsynchronousScrollableJList(JList<T> list, DataSupplier<T> dataSupplier) {
         this.pane = new JScrollPane(list);
 
-        this.getView().setFixedCellWidth(200);
+        this.getView().setFixedCellWidth(200); // TODO handle differently
         this.dataSupplier = dataSupplier;
 
         this.pane.getViewport().addChangeListener(this::updateModelIfNecessaryOnScroll);

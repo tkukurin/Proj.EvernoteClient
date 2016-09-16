@@ -1,8 +1,11 @@
 package co.kukurin.gui;
 
+import co.kukurin.environment.Statics;
+
 import javax.swing.*;
 import javax.swing.border.Border;
 import java.awt.*;
+import java.util.Arrays;
 
 public class JFrameUtils {
 
@@ -19,6 +22,7 @@ public class JFrameUtils {
         window.setTitle(title);
         window.setMinimumSize(new Dimension(minWidth, minHeight));
         window.setDefaultCloseOperation(defaultCloseOperation);
+        window.setLayout(new BorderLayout(5, 5));
         window.setVisible(true);
     }
 

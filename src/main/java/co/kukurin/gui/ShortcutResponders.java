@@ -6,8 +6,9 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-public class PredefinedKeyEvents {
+public class ShortcutResponders {
 
+    // TODO possibly a map (keyCode -> Function)
     private final List<Function<KeyEvent, Boolean>> keyEventResponders = new LinkedList<>();
 
     public void addKeyEvent(Predicate<KeyEvent> condition, Runnable invocation) {

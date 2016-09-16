@@ -16,7 +16,7 @@ public class EvernoteEditor extends JPanel {
         textArea.setFont(editorFont);
         this.scrollPane = new JScrollPane(textArea);
 
-        setLayout(Statics.defaultBorderLayout);
+        setLayout(new BorderLayout());
         add(this.scrollPane, BorderLayout.CENTER);
     }
 
