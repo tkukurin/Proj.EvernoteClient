@@ -36,18 +36,18 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 public class Application extends JFrame {
 
     // TODO where to put this, and whether to increase size, and whether to have different send/receive executors.
-    private static final Executor evernoteCommunicationExecutor = EvernoteExecutors.defaultExecutor; //newSingleThreadExecutor();
+    private static final Executor evernoteCommunicationExecutor = EvernoteExecutors.defaultExecutor;
 
     // TODO whether to remove applicationProperties as a member variable
     private final ApplicationProperties applicationProperties;
     private final EvernoteAdapter evernoteAdapter;
     private final ShortcutResponders shortcutResponders;
+    private final AsynchronousUpdater<EvernoteEntry> listToServerSynchronizer;
+    private CompletableFuture<String> noteContentFetchInProgress;
 
     private EvernoteEditor contentEditor;
     private AsynchronousScrollableJList<EvernoteEntry> noteJList;
     private JTextField titleTextField;
-    private CompletableFuture<String> noteContentFetchInProgress;
-    private AsynchronousUpdater<EvernoteEntry> updater;
 
     Application(EvernoteAdapter evernoteAdapter,
                 ApplicationProperties applicationProperties,
@@ -55,7 +55,7 @@ public class Application extends JFrame {
         this.evernoteAdapter = evernoteAdapter;
         this.applicationProperties = applicationProperties;
         this.shortcutResponders = createPredefinedKeyEvents();
-        this.updater = createListUpdater(evernoteAdapter, applicationProperties);
+        this.listToServerSynchronizer = createListUpdater(this.evernoteAdapter, this.applicationProperties);
 
         initWindowFromProperties(this.applicationProperties);
         initGuiElements(this.evernoteAdapter, this.applicationProperties);
@@ -67,18 +67,20 @@ public class Application extends JFrame {
 
         Predicate<KeyEvent> isAlt = InputEvent::isAltDown;
         Predicate<KeyEvent> isControl = InputEvent::isControlDown;
+        Predicate<KeyEvent> isShift = InputEvent::isShiftDown;
         Function<Integer, Predicate<KeyEvent>> keyPressed = keyCode -> (e -> e.getKeyCode() == keyCode);
 
         shortcutResponders.addKeyEvent(isAlt.and(keyPressed.apply(VK_1)), () -> this.noteJList.requestFocusInWindow());
         shortcutResponders.addKeyEvent(keyPressed.apply(VK_ESCAPE), () -> this.contentEditor.requestFocusInWindow());
         shortcutResponders.addKeyEvent(isControl.and(keyPressed.apply(VK_ENTER)), () -> this.onSubmitNoteClick(null));
+        shortcutResponders.addKeyEvent(isControl.and(isShift).and(keyPressed.apply(VK_F)), () -> log.info("find action TODO"));
 
         return shortcutResponders;
     }
 
     private AsynchronousUpdater<EvernoteEntry> createListUpdater(EvernoteAdapter evernoteAdapter, ApplicationProperties applicationProperties) {
-        return new AsynchronousUpdater<>(getNoteListUpdater(evernoteAdapter, applicationProperties.getTags()),
-                notes -> this.noteJList.setModel(new AsynchronousListModel<>(notes)));
+        return new AsynchronousUpdater<>(getEvernoteEntrySupplier(evernoteAdapter, applicationProperties.getTags()),
+                notes -> this.noteJList.setModel(new AsynchronousListModel<>(notes)), applicationProperties.getFetchSize());
     }
 
     private void initWindowFromProperties(ApplicationProperties applicationProperties) {
@@ -92,13 +94,13 @@ public class Application extends JFrame {
     private void initGuiElements(EvernoteAdapter evernoteAdapter, ApplicationProperties applicationProperties) {
         this.titleTextField = new JTextField();
         this.contentEditor = new EvernoteEditor();
-        this.noteJList = new AsynchronousScrollableJList<>(getNoteListUpdater(evernoteAdapter, applicationProperties.getTags()));
+        this.noteJList = new AsynchronousScrollableJList<>(getEvernoteEntrySupplier(evernoteAdapter, applicationProperties.getTags()), applicationProperties.getFetchSize());
         this.noteJList.addListSelectionListener(this::displayNote);
         JButton submitNoteButton = new JButton(createAction("Submit note", this::onSubmitNoteClick));
         JButton synchronizeButton = new JButton(createAction("Synchronize", this::onSynchronizeClick));
         JPanel syncAndSubmitButton = ComponentUtils
                 .createContainerFor(synchronizeButton, submitNoteButton)
-                .usingConstraints(LINE_START, LINE_END);
+                .withLayoutConstraints(LINE_START, LINE_END);
 
         add(this.titleTextField, PAGE_START);
         add(this.noteJList, LINE_START);
@@ -110,7 +112,7 @@ public class Application extends JFrame {
         keyboardFocusManager.addKeyEventDispatcher(shortcutResponders::eventInvoked);
     }
 
-    private DataSupplier<EvernoteEntry> getNoteListUpdater(EvernoteAdapter evernoteAdapter, Set<String> tagsToInclude) {
+    private DataSupplier<EvernoteEntry> getEvernoteEntrySupplier(EvernoteAdapter evernoteAdapter, Set<String> tagsToInclude) {
         NoteFilter filter = new NoteFilter();
         filter.setTagGuids(evernoteAdapter
                 .streamTagsByName(tagsToInclude)
@@ -159,12 +161,13 @@ public class Application extends JFrame {
 
         supplyAsync(() -> this.evernoteAdapter.storeNote(noteTitle, noteContent), evernoteCommunicationExecutor)
                 .thenAccept(note -> {
-                    this.noteJList.getModel().add(0, note); // TODO fix this prepending.
+                    this.noteJList.getModel().add(0, note);
                     this.noteJList.setSelectedIndex(0);
                 });
     }
 
+    // TODO check if current item has been updated.
     private void onSynchronizeClick(ActionEvent unused) {
-        this.updater.runAsyncUpdate(DataSupplierInfoFactory.getDataSupplier(0, applicationProperties.getFetchSize()));
+        this.listToServerSynchronizer.runAsyncUpdate(DataSupplierInfoFactory.getDataSupplier(0, applicationProperties.getFetchSize()));
     }
 }

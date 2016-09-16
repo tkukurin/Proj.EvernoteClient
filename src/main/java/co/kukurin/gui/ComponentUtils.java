@@ -15,7 +15,7 @@ public class ComponentUtils {
             this.items = items;
         }
 
-        public JPanel usingConstraints(String ... borderLayoutConstraints) {
+        public JPanel withLayoutConstraints(String ... borderLayoutConstraints) {
             JPanel container = new JPanel(Statics.defaultBorderLayout);
             for(int i = 0; i < borderLayoutConstraints.length; i++) {
                 container.add(items[i], borderLayoutConstraints[i]);

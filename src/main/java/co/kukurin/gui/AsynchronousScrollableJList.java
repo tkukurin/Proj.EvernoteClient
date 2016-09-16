@@ -1,9 +1,6 @@
 package co.kukurin.gui;
 
 import co.kukurin.async.DataSupplier;
-import co.kukurin.async.DataSupplierInfo;
-import co.kukurin.async.DataSupplierInfoFactory;
-import co.kukurin.async.EvernoteExecutors;
 import co.kukurin.custom.Optional;
 import co.kukurin.gui.factories.ListenerFactory;
 import lombok.extern.slf4j.Slf4j;
@@ -12,20 +9,18 @@ import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import java.awt.*;
-import java.util.concurrent.Executor;
 
 import static java.util.concurrent.CompletableFuture.runAsync;
 
 @Slf4j
 public class AsynchronousScrollableJList<T> extends JPanel {
 
-    private volatile boolean updateInProgress;
     private Rectangle boundsRectangle;
-    private final DataSupplier<T> dataSupplier;
+    private final AsynchronousUpdater<T> updater;
     private final JScrollPane pane;
 
-    public AsynchronousScrollableJList(DataSupplier<T> dataSupplier) {
-        this(new JList<>(new AsynchronousListModel<T>()), dataSupplier);
+    public AsynchronousScrollableJList(DataSupplier<T> dataSupplier, int fetchSize) {
+        this(new JList<>(new AsynchronousListModel<>()), dataSupplier, fetchSize);
     }
 
     public Optional<T> getSelectedValue() { return Optional.ofNullable(getView().getSelectedValue()); }
@@ -37,11 +32,11 @@ public class AsynchronousScrollableJList<T> extends JPanel {
         getView().setModel(model);
     }
 
-    private AsynchronousScrollableJList(JList<T> list, DataSupplier<T> dataSupplier) {
+    private AsynchronousScrollableJList(JList<T> list, DataSupplier<T> dataSupplier, int fetchSize) {
         this.pane = new JScrollPane(list);
 
         this.getView().setFixedCellWidth(200); // TODO handle differently
-        this.dataSupplier = dataSupplier;
+        this.updater = new AsynchronousUpdater<>(dataSupplier, getModel()::addAll, fetchSize);
 
         this.pane.getViewport().addChangeListener(this::updateModelIfNecessaryOnScroll);
         this.pane.getViewport().addComponentListener(ListenerFactory.createResizeListener(this::updateModelIfNecessaryOnResize));
@@ -52,7 +47,7 @@ public class AsynchronousScrollableJList<T> extends JPanel {
     }
 
     private void updateModelIfNecessaryOnScroll(Object unused) {
-        if(this.updateInProgress) {
+        if(isUpdateInProgress()) {
             return;
         }
 
@@ -72,7 +67,7 @@ public class AsynchronousScrollableJList<T> extends JPanel {
     }
 
     private void updateModelIfNecessaryOnResize(Object unused) {
-        if(this.updateInProgress) { // TODO implement some kind of updateQueue instead?
+        if(isUpdateInProgress()) { // TODO implement some kind of updateQueue instead?
             return;
         }
 
@@ -89,30 +84,17 @@ public class AsynchronousScrollableJList<T> extends JPanel {
         log.info("model size {}", this.getModel().getSize());
 
         boolean isSelectedLastItemInList = this.getModel().getSize() == this.getView().getMaxSelectionIndex() + 1;
-        if(!this.updateInProgress && isSelectedLastItemInList) {
+        if(!isUpdateInProgress() && isSelectedLastItemInList) {
             runAsyncUpdate();
         }
     }
 
-    private void runAsyncUpdate() {
-        this.updateInProgress = true;
-        log.info("running update.");
-        runAsync(this::getNewBatchForCurrentlyActiveItems, EvernoteExecutors.defaultExecutor)
-                .thenRun(() -> {
-                    this.updateInProgress = false;
-                    log.info("update done!");
-                })
-                .exceptionally(e -> {
-                    log.info("exception occurred {}", e);
-                    return null;
-                });
+    private boolean isUpdateInProgress() {
+        return this.updater.isUpdateInProgress();
     }
 
-    private void getNewBatchForCurrentlyActiveItems() {
-        AsynchronousListModel<T> model = getModel();
-        DataSupplierInfo dataSupplierInfo = DataSupplierInfoFactory.getDataSupplier(model.getSize(), 5); // TODO change this.
-
-        model.addAll(this.dataSupplier.getData(dataSupplierInfo));
+    private void runAsyncUpdate() {
+        this.updater.runAsyncUpdate(getModel().getSize());
     }
 
     public void addListSelectionListener(ListSelectionListener listener) {

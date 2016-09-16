@@ -24,7 +24,7 @@ public class ExceptionHelper {
         return Optional.empty();
     }
 
-    // handlingExceptionAs ?
+    // handlingExceptionAs, usingExceptionHandler, exceptionally, invokingOnException, inCaseOfException ?
     public static ExceptionHandler usingExceptionHandler(Consumer<Exception> exceptionHandler) {
         return new ExceptionHandler(exceptionHandler);
     }
