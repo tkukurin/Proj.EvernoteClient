@@ -55,7 +55,7 @@ public class Application extends JFrame {
         this.evernoteAdapter = evernoteAdapter;
         this.applicationProperties = applicationProperties;
         this.shortcutResponders = createPredefinedKeyEvents();
-        this.updater = new AsynchronousUpdater<>(getNoteListUpdater(evernoteAdapter, applicationProperties.getTags()), notes -> log.info("notes {}", notes));
+        this.updater = createListUpdater(evernoteAdapter, applicationProperties);
 
         initWindowFromProperties(this.applicationProperties);
         initGuiElements(this.evernoteAdapter, this.applicationProperties);
@@ -74,6 +74,11 @@ public class Application extends JFrame {
         shortcutResponders.addKeyEvent(isControl.and(keyPressed.apply(VK_ENTER)), () -> this.onSubmitNoteClick(null));
 
         return shortcutResponders;
+    }
+
+    private AsynchronousUpdater<EvernoteEntry> createListUpdater(EvernoteAdapter evernoteAdapter, ApplicationProperties applicationProperties) {
+        return new AsynchronousUpdater<>(getNoteListUpdater(evernoteAdapter, applicationProperties.getTags()),
+                notes -> this.noteJList.setModel(new AsynchronousListModel<>(notes)));
     }
 
     private void initWindowFromProperties(ApplicationProperties applicationProperties) {

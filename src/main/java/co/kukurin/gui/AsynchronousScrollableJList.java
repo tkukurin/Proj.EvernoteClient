@@ -25,13 +25,16 @@ public class AsynchronousScrollableJList<T> extends JPanel {
     private final JScrollPane pane;
 
     public AsynchronousScrollableJList(DataSupplier<T> dataSupplier) {
-        this(new JList<>(new DefaultListModel<>()), dataSupplier);
+        this(new JList<>(new AsynchronousListModel<T>()), dataSupplier);
     }
 
     public Optional<T> getSelectedValue() { return Optional.ofNullable(getView().getSelectedValue()); }
 
-    public DefaultListModel<T> getModel() {
-        return (DefaultListModel<T>) getView().getModel();
+    public AsynchronousListModel<T> getModel() {
+        return (AsynchronousListModel<T>) getView().getModel();
+    }
+    public void setModel(AsynchronousListModel<T> model) {
+        getView().setModel(model);
     }
 
     private AsynchronousScrollableJList(JList<T> list, DataSupplier<T> dataSupplier) {
@@ -85,7 +88,7 @@ public class AsynchronousScrollableJList<T> extends JPanel {
     private void updateModelIfNecessaryOnSelectionChange(ListSelectionEvent unused) {
         log.info("model size {}", this.getModel().getSize());
 
-        boolean isSelectedLastItemInList = this.getModel().size() == this.getView().getMaxSelectionIndex() + 1;
+        boolean isSelectedLastItemInList = this.getModel().getSize() == this.getView().getMaxSelectionIndex() + 1;
         if(!this.updateInProgress && isSelectedLastItemInList) {
             runAsyncUpdate();
         }
@@ -106,10 +109,10 @@ public class AsynchronousScrollableJList<T> extends JPanel {
     }
 
     private void getNewBatchForCurrentlyActiveItems() {
-        DefaultListModel<T> model = getModel();
+        AsynchronousListModel<T> model = getModel();
         DataSupplierInfo dataSupplierInfo = DataSupplierInfoFactory.getDataSupplier(model.getSize(), 5); // TODO change this.
 
-        this.dataSupplier.getData(dataSupplierInfo).forEach(model::addElement);
+        model.addAll(this.dataSupplier.getData(dataSupplierInfo));
     }
 
     public void addListSelectionListener(ListSelectionListener listener) {
