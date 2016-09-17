@@ -1,5 +1,6 @@
-package co.kukurin.gui;
+package co.kukurin;
 
+import co.kukurin.DefaultListModel;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
@@ -12,12 +13,12 @@ import static org.assertj.core.api.BDDAssertions.then;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-public class AsynchronousListModelTest {
+public class DefaultListModelTest {
 
     @Test
     public void shouldFireListenersOnSingleAdd() throws Exception {
         // given
-        AsynchronousListModel<Object> givenModel = new AsynchronousListModel<>();
+        DefaultListModel<Object> givenModel = new DefaultListModel<>();
         ListDataListener givenMockedListener = Mockito.mock(ListDataListener.class);
 
         // when
@@ -35,7 +36,7 @@ public class AsynchronousListModelTest {
     @Test
     public void shouldFireListenersOnBatchAdd() throws Exception {
         // given
-        AsynchronousListModel<Object> givenModel = new AsynchronousListModel<>();
+        DefaultListModel<Object> givenModel = new DefaultListModel<>();
         ListDataListener givenMockedListener = Mockito.mock(ListDataListener.class);
 
         // when

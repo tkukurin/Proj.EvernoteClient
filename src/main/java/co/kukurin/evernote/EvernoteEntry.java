@@ -12,12 +12,11 @@ import java.util.List;
 public class EvernoteEntry {
 
     private Note delegate;
-
-    // TODO currently unused.
     private @Getter @Setter boolean wasModified;
 
     public EvernoteEntry(Note delegate) {
         this.delegate = delegate;
+        this.wasModified = false;
     }
 
     public Note toNote() {

@@ -1,4 +1,4 @@
-package co.kukurin.gui.factories;
+package co.kukurin.utils;
 
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;

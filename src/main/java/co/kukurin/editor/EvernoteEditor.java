@@ -1,15 +1,15 @@
 package co.kukurin.editor;
 
-import co.kukurin.custom.Optional;
 import co.kukurin.environment.Statics;
 import co.kukurin.evernote.EvernoteEntry;
+import com.evernote.edam.type.Note;
 
 import javax.swing.*;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.util.function.Consumer;
 
-import static co.kukurin.gui.factories.DocumentListenerFactory.*;
+import static co.kukurin.utils.DocumentListenerFactory.*;
 import static java.awt.BorderLayout.*;
 
 public class EvernoteEditor extends JPanel {
@@ -23,6 +23,7 @@ public class EvernoteEditor extends JPanel {
     public EvernoteEditor() {
         JTextArea textArea = new JTextArea();
 
+        this.activeEntry = new EvernoteEntry(new Note());
         this.scrollPane = new JScrollPane(textArea);
         this.textField = new JTextField();
 
@@ -39,11 +40,17 @@ public class EvernoteEditor extends JPanel {
     public void setEntry(EvernoteEntry entry) {
         this.activeEntry = entry;
         this.textField.setText(entry.getTitle());
-        getView().setText(entry.getContent());
+        this.getView().setText(entry.getContent());
+
+        // sneaky change, find different way to reset
+        this.activeEntry.setWasModified(false);
     }
 
     public String getContent() { return getView().getText(); }
     public String getTitle() { return this.textField.getText(); }
+    public boolean entryWasModified() {
+        return this.activeEntry.isWasModified();
+    }
 
     @Override
     public boolean requestFocusInWindow() {
@@ -59,12 +66,10 @@ public class EvernoteEditor extends JPanel {
     }
 
     private DocumentListener createEntryModifyingListener(Consumer<EvernoteEntry> entryConsumer) {
-        return createGeneralDocumentListener(e ->
-                Optional.ofNullable(this.activeEntry).ifPresent(entry -> {
-                    entry.setWasModified(true);
-                    entryConsumer.accept(entry);
-                })
-        );
+        return createGeneralDocumentListener(e -> {
+            this.activeEntry.setWasModified(true);
+            entryConsumer.accept(this.activeEntry);
+        });
     }
 
     private JTextArea getView() { return (JTextArea) this.scrollPane.getViewport().getView(); }

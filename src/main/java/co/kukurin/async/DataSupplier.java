@@ -5,6 +5,6 @@ import java.util.Collection;
 @FunctionalInterface
 public interface DataSupplier<T> {
 
-    Collection<T> getData(DataSupplierInfo dataSupplierInfo);
+    T getData(DataSupplierInfo dataSupplierInfo);
 
 }

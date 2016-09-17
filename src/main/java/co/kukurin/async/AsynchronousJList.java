@@ -1,8 +1,7 @@
-package co.kukurin.gui;
+package co.kukurin.async;
 
-import co.kukurin.async.DataSupplier;
 import co.kukurin.custom.Optional;
-import co.kukurin.gui.factories.ListenerFactory;
+import co.kukurin.utils.ListenerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.swing.*;
@@ -13,30 +12,18 @@ import java.awt.*;
 import static java.util.concurrent.CompletableFuture.runAsync;
 
 @Slf4j
-public class AsynchronousScrollableJList<T> extends JPanel {
+public class AsynchronousJList<ListItemType, UpdaterReturnType> extends JPanel {
 
     private Rectangle boundsRectangle;
-    private final AsynchronousUpdater<T> updater;
+    private final AsynchronousUpdater<UpdaterReturnType> updater;
     private final JScrollPane pane;
 
-    public AsynchronousScrollableJList(DataSupplier<T> dataSupplier, int fetchSize) {
-        this(new JList<>(new AsynchronousListModel<>()), dataSupplier, fetchSize);
-    }
-
-    public Optional<T> getSelectedValue() { return Optional.ofNullable(getView().getSelectedValue()); }
-
-    public AsynchronousListModel<T> getModel() {
-        return (AsynchronousListModel<T>) getView().getModel();
-    }
-    public void setModel(AsynchronousListModel<T> model) {
-        getView().setModel(model);
-    }
-
-    private AsynchronousScrollableJList(JList<T> list, DataSupplier<T> dataSupplier, int fetchSize) {
-        this.pane = new JScrollPane(list);
+    public AsynchronousJList(AsynchronousUpdater<UpdaterReturnType> updater,
+                             co.kukurin.DefaultListModel<ListItemType> listModel) {
+        this.pane = new JScrollPane(new JList<>(listModel));
+        this.updater = updater;
 
         this.getView().setFixedCellWidth(200); // TODO handle differently
-        this.updater = new AsynchronousUpdater<>(dataSupplier, getModel()::addAll, fetchSize);
 
         this.pane.getViewport().addChangeListener(this::updateModelIfNecessaryOnScroll);
         this.pane.getViewport().addComponentListener(ListenerFactory.createResizeListener(this::updateModelIfNecessaryOnResize));
@@ -44,6 +31,29 @@ public class AsynchronousScrollableJList<T> extends JPanel {
 
         setLayout(new BorderLayout());
         add(this.pane, BorderLayout.CENTER);
+    }
+
+    public Optional<ListItemType> getSelectedValue() { return Optional.ofNullable(getView().getSelectedValue()); }
+
+    public co.kukurin.DefaultListModel<ListItemType> getModel() {
+        return (co.kukurin.DefaultListModel<ListItemType>) getView().getModel();
+    }
+
+    public void setModel(co.kukurin.DefaultListModel<ListItemType> model) {
+        getView().setModel(model);
+    }
+
+    public void addListSelectionListener(ListSelectionListener listener) {
+        getView().addListSelectionListener(listener);
+    }
+
+    public void setSelectedIndex(int index) {
+        getView().setSelectedIndex(index);
+    }
+
+    @Override
+    public boolean requestFocusInWindow() {
+        return getView().requestFocusInWindow();
     }
 
     private void updateModelIfNecessaryOnScroll(Object unused) {
@@ -81,8 +91,6 @@ public class AsynchronousScrollableJList<T> extends JPanel {
     }
 
     private void updateModelIfNecessaryOnSelectionChange(ListSelectionEvent unused) {
-        log.info("model size {}", this.getModel().getSize());
-
         boolean isSelectedLastItemInList = this.getModel().getSize() == this.getView().getMaxSelectionIndex() + 1;
         if(!isUpdateInProgress() && isSelectedLastItemInList) {
             runAsyncUpdate();
@@ -97,21 +105,8 @@ public class AsynchronousScrollableJList<T> extends JPanel {
         this.updater.runAsyncUpdate(getModel().getSize());
     }
 
-    public void addListSelectionListener(ListSelectionListener listener) {
-        this.getView().addListSelectionListener(listener);
-    }
-
-    public void setSelectedIndex(int index) {
-        getView().setSelectedIndex(index);
-    }
-
-    @Override
-    public boolean requestFocusInWindow() {
-        return getView().requestFocusInWindow();
-    }
-
     @SuppressWarnings("unchecked")
-    private JList<T> getView() {
-        return (JList<T>) this.pane.getViewport().getView();
+    private JList<ListItemType> getView() {
+        return (JList<ListItemType>) this.pane.getViewport().getView();
     }
 }

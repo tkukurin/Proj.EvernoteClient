@@ -1,7 +1,8 @@
 package co.kukurin;
 
+import co.kukurin.async.AsynchronousJList;
+import co.kukurin.async.AsynchronousUpdater;
 import co.kukurin.async.DataSupplier;
-import co.kukurin.async.DataSupplierInfoFactory;
 import co.kukurin.async.EvernoteExecutors;
 import co.kukurin.custom.Optional;
 import co.kukurin.editor.EvernoteEditor;
@@ -9,7 +10,8 @@ import co.kukurin.environment.ApplicationProperties;
 import co.kukurin.evernote.EvernoteAdapter;
 import co.kukurin.evernote.EvernoteEntry;
 import co.kukurin.evernote.EvernoteEntryList;
-import co.kukurin.gui.*;
+import co.kukurin.utils.ComponentUtils;
+import co.kukurin.utils.JFrameUtils;
 import com.evernote.edam.notestore.NoteFilter;
 import com.evernote.edam.type.Tag;
 import lombok.extern.slf4j.Slf4j;
@@ -20,17 +22,20 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
+import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static co.kukurin.gui.factories.ActionFactory.createAction;
+import static co.kukurin.utils.ActionFactory.createAction;
 import static java.awt.BorderLayout.*;
 import static java.awt.event.KeyEvent.*;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static javax.swing.JOptionPane.*;
 
 @Slf4j
 public class Application extends JFrame {
@@ -38,26 +43,24 @@ public class Application extends JFrame {
     // TODO where to put this, and whether to increase size, and whether to have different send/receive executors.
     private static final Executor evernoteCommunicationExecutor = EvernoteExecutors.defaultExecutor;
 
-    // TODO whether to remove applicationProperties as a member variable
-    private final ApplicationProperties applicationProperties;
     private final EvernoteAdapter evernoteAdapter;
     private final ShortcutResponders shortcutResponders;
-    private final AsynchronousUpdater<EvernoteEntry> listToServerSynchronizer;
+    private final AsynchronousUpdater<Collection<EvernoteEntry>> listToServerSynchronizer;
     private CompletableFuture<String> noteContentFetchInProgress;
 
     private EvernoteEditor contentEditor;
-    private AsynchronousScrollableJList<EvernoteEntry> noteJList;
+    private AsynchronousJList<EvernoteEntry, Collection<EvernoteEntry>> noteJList;
 
     Application(EvernoteAdapter evernoteAdapter,
                 ApplicationProperties applicationProperties,
                 KeyboardFocusManager keyboardFocusManager) {
         this.evernoteAdapter = evernoteAdapter;
-        this.applicationProperties = applicationProperties;
         this.shortcutResponders = createPredefinedKeyEvents();
-        this.listToServerSynchronizer = createListUpdater(this.evernoteAdapter, this.applicationProperties);
+        this.listToServerSynchronizer = createListUpdater(evernoteAdapter, applicationProperties,
+                notes -> this.noteJList.setModel(new DefaultListModel<>(notes)));
 
-        initWindowFromProperties(this.applicationProperties);
-        initGuiElements(this.evernoteAdapter, this.applicationProperties);
+        initWindowFromProperties(applicationProperties);
+        initGuiElements(evernoteAdapter, applicationProperties);
         initListeners(keyboardFocusManager);
     }
 
@@ -77,9 +80,13 @@ public class Application extends JFrame {
         return shortcutResponders;
     }
 
-    private AsynchronousUpdater<EvernoteEntry> createListUpdater(EvernoteAdapter evernoteAdapter, ApplicationProperties applicationProperties) {
+    private AsynchronousUpdater<Collection<EvernoteEntry>> createListUpdater(EvernoteAdapter evernoteAdapter,
+                                                                 ApplicationProperties applicationProperties,
+                                                                 Consumer<Collection<EvernoteEntry>> dataConsumer) {
         return new AsynchronousUpdater<>(getEvernoteEntrySupplier(evernoteAdapter, applicationProperties.getTags()),
-                notes -> this.noteJList.setModel(new AsynchronousListModel<>(notes)), applicationProperties.getFetchSize());
+                dataConsumer,
+                EvernoteExecutors.defaultExecutor,
+                applicationProperties.getFetchSize());
     }
 
     private void initWindowFromProperties(ApplicationProperties applicationProperties) {
@@ -92,7 +99,9 @@ public class Application extends JFrame {
 
     private void initGuiElements(EvernoteAdapter evernoteAdapter, ApplicationProperties applicationProperties) {
         this.contentEditor = new EvernoteEditor();
-        this.noteJList = new AsynchronousScrollableJList<>(getEvernoteEntrySupplier(evernoteAdapter, applicationProperties.getTags()), applicationProperties.getFetchSize());
+        this.noteJList = new AsynchronousJList<>(
+                createListUpdater(evernoteAdapter, applicationProperties, notes -> this.noteJList.getModel().addAll(notes)),
+                new DefaultListModel<>());
         this.noteJList.addListSelectionListener(this::displayNote);
         JButton submitNoteButton = new JButton(createAction("Submit note", this::onSubmitNoteClick));
         JButton synchronizeButton = new JButton(createAction("Synchronize", this::onSynchronizeClick));
@@ -109,7 +118,7 @@ public class Application extends JFrame {
         keyboardFocusManager.addKeyEventDispatcher(shortcutResponders::eventInvoked);
     }
 
-    private DataSupplier<EvernoteEntry> getEvernoteEntrySupplier(EvernoteAdapter evernoteAdapter, Set<String> tagsToInclude) {
+    private DataSupplier<Collection<EvernoteEntry>> getEvernoteEntrySupplier(EvernoteAdapter evernoteAdapter, Set<String> tagsToInclude) {
         NoteFilter filter = new NoteFilter();
         filter.setTagGuids(evernoteAdapter
                 .streamTagsByName(tagsToInclude)
@@ -128,6 +137,19 @@ public class Application extends JFrame {
     private void displayNote(ListSelectionEvent event) {
         if(event.getValueIsAdjusting()) {
             return;
+        }
+
+        if(this.contentEditor.entryWasModified()) {
+            int result = showConfirmDialog(this, "Current document was modified. Save to Evernote?");
+
+            if(result != JOptionPane.NO_OPTION) {
+                if(result == JOptionPane.YES_OPTION) {
+                    log.info("confirmed.");
+                }
+
+                return;
+            }
+
         }
 
         this.noteJList.getSelectedValue().ifPresent(selected -> {
@@ -164,6 +186,6 @@ public class Application extends JFrame {
 
     // TODO check if current item has been updated.
     private void onSynchronizeClick(ActionEvent unused) {
-        this.listToServerSynchronizer.runAsyncUpdate(DataSupplierInfoFactory.getDataSupplier(0, applicationProperties.getFetchSize()));
+        this.listToServerSynchronizer.runAsyncUpdate(0);
     }
 }

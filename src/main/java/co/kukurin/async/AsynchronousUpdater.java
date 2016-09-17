@@ -1,12 +1,8 @@
-package co.kukurin.gui;
+package co.kukurin.async;
 
-import co.kukurin.async.DataSupplier;
-import co.kukurin.async.DataSupplierInfo;
-import co.kukurin.async.DataSupplierInfoFactory;
-import co.kukurin.async.EvernoteExecutors;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Collection;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -15,15 +11,19 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class AsynchronousUpdater<T> {
 
     private volatile boolean updateInProgress;
+    private final Executor executor;
     private final DataSupplier<T> dataSupplier;
-    private final Consumer<Collection<T>> uponUpdateAcceptor;
+    private final Consumer<T> uponUpdateAcceptor;
     private final int fetchSize;
 
     public AsynchronousUpdater(DataSupplier<T> dataSupplier,
-                               Consumer<Collection<T>> uponUpdateAcceptor, int fetchSize) {
+                               Consumer<T> uponUpdateAcceptor,
+                               Executor executor,
+                               int fetchSize) {
         this.dataSupplier = dataSupplier;
         this.uponUpdateAcceptor = uponUpdateAcceptor;
         this.fetchSize = fetchSize;
+        this.executor = executor;
     }
 
     public boolean isUpdateInProgress() {
@@ -39,10 +39,10 @@ public class AsynchronousUpdater<T> {
         log.info("running update.");
 
         completedFuture(dataSupplierInfo)
-                .thenApplyAsync(this.dataSupplier::getData, EvernoteExecutors.defaultExecutor)
-                .thenAccept(notes -> {
+                .thenApplyAsync(this.dataSupplier::getData, this.executor)
+                .thenAccept(fetchedItems -> {
                     this.updateInProgress = false;
-                    this.uponUpdateAcceptor.accept(notes);
+                    this.uponUpdateAcceptor.accept(fetchedItems);
                 })
                 .exceptionally(e -> {
                     log.error("exception occurred fetching data", e);

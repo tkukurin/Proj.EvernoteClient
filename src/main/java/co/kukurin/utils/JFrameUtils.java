@@ -1,4 +1,4 @@
-package co.kukurin.gui;
+package co.kukurin.utils;
 
 import co.kukurin.environment.Statics;
 

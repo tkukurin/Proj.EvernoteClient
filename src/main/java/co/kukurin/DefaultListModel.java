@@ -1,4 +1,4 @@
-package co.kukurin.gui;
+package co.kukurin;
 
 import javax.swing.*;
 import javax.swing.event.ListDataEvent;
@@ -7,15 +7,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 
-public class AsynchronousListModel<T> extends AbstractListModel<T> {
+public class DefaultListModel<T> extends AbstractListModel<T> {
 
     private ArrayList<T> coreItems;
 
-    public AsynchronousListModel() {
+    public DefaultListModel() {
         this(new ArrayList<>());
     }
 
-    public AsynchronousListModel(Collection<T> coreItems) {
+    public DefaultListModel(Collection<T> coreItems) {
         this.coreItems = new ArrayList<>(coreItems);
     }
 
@@ -46,16 +46,6 @@ public class AsynchronousListModel<T> extends AbstractListModel<T> {
         this.coreItems.addAll(index, items);
         fireIntervalAdded(index, index + items.size());
     }
-
-    // TODO setItems ?
-    // or just leave as-is ( list.setModel(...) ) ?
-//    public void replaceModel(Collection<T> items) {
-//        int oldSize = this.coreItems.size();
-//        this.coreItems = new ArrayList<>(items);
-//
-//        fireIntervalRemoved(0, oldSize);
-//        fireIntervalAdded(0, items.size());
-//    }
 
     protected void fireContentsChanged(int index0, int index1) {
         ListDataListener[] listeners = listenerList.getListeners(ListDataListener.class);

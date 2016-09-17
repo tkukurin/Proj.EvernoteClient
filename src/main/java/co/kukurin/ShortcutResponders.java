@@ -1,4 +1,4 @@
-package co.kukurin.gui;
+package co.kukurin;
 
 import java.awt.event.KeyEvent;
 import java.util.LinkedList;
@@ -10,6 +10,7 @@ public class ShortcutResponders {
 
     // TODO possibly a map (keyCode -> Function)
     private final List<Function<KeyEvent, Boolean>> keyEventResponders = new LinkedList<>();
+    private long previousEventTime;
 
     public void addKeyEvent(Predicate<KeyEvent> condition, Runnable invocation) {
         keyEventResponders.add(keyEvent -> {
@@ -20,9 +21,18 @@ public class ShortcutResponders {
     }
 
     public boolean eventInvoked(KeyEvent event) {
-        for(Function<KeyEvent, Boolean> functions : keyEventResponders) {
-            if(functions.apply(event))
+        final int requiredMinTimePassedSinceLastShortcutInvoked = 500;
+        long eventTime = event.getWhen();
+
+        if(eventTime - previousEventTime < requiredMinTimePassedSinceLastShortcutInvoked) {
+            return false;
+        }
+
+        for (Function<KeyEvent, Boolean> functions : keyEventResponders) {
+            if (functions.apply(event)) {
+                this.previousEventTime = eventTime;
                 return true;
+            }
         }
 
         return false;
