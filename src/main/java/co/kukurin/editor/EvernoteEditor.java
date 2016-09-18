@@ -1,6 +1,5 @@
 package co.kukurin.editor;
 
-import co.kukurin.environment.Statics;
 import co.kukurin.evernote.EvernoteEntry;
 import com.evernote.edam.type.Note;
 
@@ -30,7 +29,7 @@ public class EvernoteEditor extends JPanel {
         textArea.setFont(editorFont);
         this.textField.setFont(editorFont);
 
-        setLayout(new BorderLayout(0, Statics.defaultMargin));
+        setLayout(new BorderLayout(0, 5));
         add(this.textField, PAGE_START);
         add(this.scrollPane, CENTER);
 

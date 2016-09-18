@@ -1,8 +1,7 @@
 package co.kukurin.utils;
 
-import co.kukurin.environment.Statics;
-
 import javax.swing.*;
+import java.awt.*;
 
 public class ComponentUtils {
 
@@ -16,7 +15,7 @@ public class ComponentUtils {
         }
 
         public JPanel withLayoutConstraints(String ... borderLayoutConstraints) {
-            JPanel container = new JPanel(Statics.defaultBorderLayout);
+            JPanel container = new JPanel(new BorderLayout());
             for(int i = 0; i < borderLayoutConstraints.length; i++) {
                 container.add(items[i], borderLayoutConstraints[i]);
             }

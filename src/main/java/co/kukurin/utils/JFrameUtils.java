@@ -1,11 +1,8 @@
 package co.kukurin.utils;
 
-import co.kukurin.environment.Statics;
-
 import javax.swing.*;
 import javax.swing.border.Border;
 import java.awt.*;
-import java.util.Arrays;
 
 public class JFrameUtils {
 
