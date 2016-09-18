@@ -50,9 +50,9 @@ public class Application extends JFrame {
                 Executor evernoteCommunicationExecutor) {
         this.evernoteAdapter = evernoteAdapter;
         this.shortcutResponders = createPredefinedKeyEvents();
-        this.listToServerSynchronizer = createListUpdater(evernoteAdapter, applicationProperties,
-                notes -> this.noteJList.setModel(new DefaultListModel<>(notes)));
         this.evernoteCommunicationExecutor = evernoteCommunicationExecutor;
+        this.listToServerSynchronizer = createListUpdater(evernoteAdapter, applicationProperties,
+                notes -> this.noteJList.setModel(new DefaultListModel<>(notes)), evernoteCommunicationExecutor);
 
         initWindowFromProperties(applicationProperties);
         initGuiElements(evernoteAdapter, applicationProperties);
@@ -74,11 +74,12 @@ public class Application extends JFrame {
     }
 
     private AsynchronousUpdater<Collection<EvernoteEntry>> createListUpdater(EvernoteAdapter evernoteAdapter,
-                                                                 ApplicationProperties applicationProperties,
-                                                                 Consumer<Collection<EvernoteEntry>> dataConsumer) {
+                                                                             ApplicationProperties applicationProperties,
+                                                                             Consumer<Collection<EvernoteEntry>> dataConsumer,
+                                                                             Executor evernoteCommunicationExecutor) {
         return new AsynchronousUpdater<>(getEvernoteEntrySupplier(evernoteAdapter, applicationProperties.getTags()),
                 dataConsumer,
-                EvernoteExecutors.defaultExecutor,
+                evernoteCommunicationExecutor,
                 applicationProperties.getFetchSize());
     }
 
@@ -93,7 +94,7 @@ public class Application extends JFrame {
     private void initGuiElements(EvernoteAdapter evernoteAdapter, ApplicationProperties applicationProperties) {
         this.contentEditor = new EvernoteEditor();
         this.noteJList = new AsynchronousJList<>(
-                createListUpdater(evernoteAdapter, applicationProperties, notes -> this.noteJList.getModel().addAll(notes)),
+                createListUpdater(evernoteAdapter, applicationProperties, notes -> this.noteJList.getModel().addAll(notes), this.evernoteCommunicationExecutor),
                 new DefaultListModel<>());
         this.noteJList.addListSelectionListener(this::displayNote);
         JButton submitNoteButton = new JButton(createAction("Submit note", this::onSubmitNoteClick));
@@ -128,15 +129,15 @@ public class Application extends JFrame {
     // allow multiple requests
     // also check if it's the same URL we're dealing with as noteFetchInProgress
     private void displayNote(ListSelectionEvent event) {
-        if(event.getValueIsAdjusting()) {
+        if (event.getValueIsAdjusting()) {
             return;
         }
 
-        if(this.contentEditor.entryWasModified()) {
+        if (this.contentEditor.entryWasModified()) {
             int result = showConfirmDialog(this, "Current document was modified. Save to Evernote?");
 
-            if(result != JOptionPane.NO_OPTION) {
-                if(result == JOptionPane.YES_OPTION) {
+            if (result != JOptionPane.NO_OPTION) {
+                if (result == JOptionPane.YES_OPTION) {
                     log.info("confirmed.");
                 }
 
@@ -151,8 +152,8 @@ public class Application extends JFrame {
 
             this.noteContentFetchInProgress = supplyAsync(() -> this.evernoteAdapter.getNoteContents(selected), evernoteCommunicationExecutor);
             this.noteContentFetchInProgress.thenAccept(noteContents -> {
-                    selected.setContent(noteContents);
-                    setDisplayedEntry(selected);
+                selected.setContent(noteContents);
+                setDisplayedEntry(selected);
             });
         });
     }
