@@ -46,8 +46,8 @@ public class ShortcutRespondersTest {
     @Test
     public void shouldNotRespondToEventsNotContainingAllKeys() throws Exception {
         // given
-        KeyEvent givenKeyPressEvent = new KeyEvent(new JFrame(), KeyEvent.KEY_PRESSED, 1L, KeyEvent.ALT_DOWN_MASK, KeyEvent.VK_F, 'F');
-        KeyEvent givenKeyReleaseEvent = new KeyEvent(new JFrame(), KeyEvent.KEY_RELEASED, 1L,KeyEvent.ALT_DOWN_MASK, KeyEvent.VK_F, 'F');
+        KeyEvent givenKeyPressEvent = new KeyEvent(new JFrame(), KeyEvent.KEY_PRESSED, 1L, KeyEvent.CTRL_DOWN_MASK, KeyEvent.VK_F, 'F');
+        KeyEvent givenKeyReleaseEvent = new KeyEvent(new JFrame(), KeyEvent.KEY_RELEASED, 1L,KeyEvent.CTRL_DOWN_MASK, KeyEvent.VK_F, 'F');
         Runnable givenMockedRunnable = mock(Runnable.class);
         ShortcutResponders givenResponders = new ShortcutResponders();
 

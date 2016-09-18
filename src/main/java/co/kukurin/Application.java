@@ -20,29 +20,22 @@ import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.awt.event.InputEvent;
-import java.awt.event.KeyEvent;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static co.kukurin.utils.ActionFactory.createAction;
 import static java.awt.BorderLayout.*;
-import static java.awt.event.KeyEvent.*;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
-import static javax.swing.JOptionPane.*;
+import static javax.swing.JOptionPane.showConfirmDialog;
 
 @Slf4j
 public class Application extends JFrame {
 
-    // TODO where to put this, and whether to increase size, and whether to have different send/receive executors.
-    private static final Executor evernoteCommunicationExecutor = EvernoteExecutors.defaultExecutor;
-
+    private final Executor evernoteCommunicationExecutor;
     private final EvernoteAdapter evernoteAdapter;
     private final ShortcutResponders shortcutResponders;
     private final AsynchronousUpdater<Collection<EvernoteEntry>> listToServerSynchronizer;
@@ -53,11 +46,13 @@ public class Application extends JFrame {
 
     Application(EvernoteAdapter evernoteAdapter,
                 ApplicationProperties applicationProperties,
-                KeyboardFocusManager keyboardFocusManager) {
+                KeyboardFocusManager keyboardFocusManager,
+                Executor evernoteCommunicationExecutor) {
         this.evernoteAdapter = evernoteAdapter;
         this.shortcutResponders = createPredefinedKeyEvents();
         this.listToServerSynchronizer = createListUpdater(evernoteAdapter, applicationProperties,
                 notes -> this.noteJList.setModel(new DefaultListModel<>(notes)));
+        this.evernoteCommunicationExecutor = evernoteCommunicationExecutor;
 
         initWindowFromProperties(applicationProperties);
         initGuiElements(evernoteAdapter, applicationProperties);

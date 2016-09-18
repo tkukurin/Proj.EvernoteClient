@@ -1,5 +1,6 @@
 package co.kukurin;
 
+import co.kukurin.async.EvernoteExecutors;
 import co.kukurin.custom.properties.PropertyLoader;
 import co.kukurin.environment.ApplicationProperties;
 import co.kukurin.environment.EvernoteProperties;
@@ -27,7 +28,7 @@ public class ApplicationStartup {
                     EvernoteAdapter evernoteAdapter = getEvernoteAdapter(evernoteProperties);
                     log.info("initialized application");
 
-                    invokeLater(() -> new Application(evernoteAdapter, applicationProperties, getCurrentKeyboardFocusManager()));
+                    invokeLater(() -> new Application(evernoteAdapter, applicationProperties, getCurrentKeyboardFocusManager(), EvernoteExecutors.defaultExecutor));
                 });
     }
 
