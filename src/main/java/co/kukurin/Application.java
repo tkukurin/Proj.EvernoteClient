@@ -67,15 +67,13 @@ public class Application extends JFrame {
     private ShortcutResponders createPredefinedKeyEvents() {
         ShortcutResponders shortcutResponders = new ShortcutResponders();
 
-        Predicate<KeyEvent> isAlt = InputEvent::isAltDown;
-        Predicate<KeyEvent> isControl = InputEvent::isControlDown;
-        Predicate<KeyEvent> isShift = InputEvent::isShiftDown;
-        Function<Integer, Predicate<KeyEvent>> keyPressed = keyCode -> (e -> e.getKeyCode() == keyCode);
-
-        shortcutResponders.addKeyEvent(isAlt.and(keyPressed.apply(VK_1)), () -> this.noteJList.requestFocusInWindow());
-        shortcutResponders.addKeyEvent(keyPressed.apply(VK_ESCAPE), () -> this.contentEditor.requestFocusInWindow());
-        shortcutResponders.addKeyEvent(isControl.and(keyPressed.apply(VK_ENTER)), () -> this.onSubmitNoteClick(null));
-        shortcutResponders.addKeyEvent(isControl.and(isShift).and(keyPressed.apply(VK_F)), () -> log.info("find action TODO"));
+        shortcutResponders.addKeyReleaseEvent("alt 1", () -> this.noteJList.requestFocusInWindow());
+        shortcutResponders.addKeyReleaseEvent("esc", () -> this.contentEditor.requestFocusInWindow());
+        shortcutResponders.addKeyReleaseEvent("ctrl enter", () -> this.onSubmitNoteClick(null));
+        shortcutResponders.addKeyReleaseEvent("ctrl shift F", () -> {
+            log.info("find action TODO");
+            JOptionPane.showConfirmDialog(this, "Find dialog.");
+        });
 
         return shortcutResponders;
     }
